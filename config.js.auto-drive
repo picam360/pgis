@@ -17,8 +17,11 @@ var pgis_conf = {
 	"auto_drive" : {
 		"load_html" : true,
 		"webdis_url" : "ws://${window.location.hostname}:7379",
-		"pst_channel" : "pserver-vslam-pst",
+		"main_pst_channel" : "pserver-forward-pst",
+		"backward_pst_channel" : "pserver-forward-pst",
 		"auto_drive_key" : "pserver-auto-drive",
 		"info_channel" : "pserver-auto-drive-info",
+		"vord_person_channel" : "picam360-vord-person-output",
+		"vord_tree_channel" : "picam360-vord-tree-output",
 	},
 }

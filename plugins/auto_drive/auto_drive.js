@@ -752,8 +752,11 @@ var create_plugin = (function () {
                             if (m_options.webdis_url && m_options.info_channel) {//webdis
                                 plugin.subscribe_info();
                             }
-                            if (m_options.webdis_url && m_options.vord_channel) {//webdis
-                                plugin.subscribe_vord();
+                            if (m_options.webdis_url && m_options.vord_person_channel) {//webdis
+                                plugin.subscribe_vord_person();
+                            }
+                            if (m_options.webdis_url && m_options.vord_tree_channel) {//webdis
+                                plugin.subscribe_vord_tree();
                             }
                         }, 1000)
                     }
@@ -896,7 +899,7 @@ var create_plugin = (function () {
                     cell.textContent = newValue;
                 }
             },
-            update_img_overlay: () => {},
+            update_img_overlays: [],
             update_img: () => {
                 const img_canvas = document.getElementById('img-left-top');
                 const ctx = img_canvas.getContext('2d');
@@ -920,8 +923,8 @@ var create_plugin = (function () {
                         displayWidth / 2, 0, displayWidth / 2, displayHeight
                     );
                 }
-                if(plugin.update_img_overlay){
-                    plugin.update_img_overlay(img_canvas, ctx);
+                for(const fnc of plugin.update_img_overlays){
+                    fnc(img_canvas, ctx);
                 }
             },
 
@@ -1402,7 +1405,7 @@ var create_plugin = (function () {
                     console.log(`Error: ${error.message}`);
                 };
             },
-            subscribe_vord: () => {
+            subscribe_vord_person: () => {
 
                 const socket = new WebSocket(m_options.webdis_url);
 
@@ -1507,7 +1510,7 @@ var create_plugin = (function () {
                     const scaleY = img_canvas.height/512/2;
                     return { scaleX, scaleY };
                 }
-                plugin.update_img_overlay = (obj, ctx) => {
+                plugin.update_img_overlays.push( (obj, ctx) => {
                     const { scaleX, scaleY } = getScale();
                     for (const r of rects) {
                         const x = Math.round(r.x * scaleX);
@@ -1539,7 +1542,198 @@ var create_plugin = (function () {
                         ctx.fillStyle = 'white';
                         ctx.fillText(`${label}(${r.score})`, tx, ty);
                     }
+                } );
+
+                // Keep overlay aligned when layout changes
+                function refresh() {
+                    plugin.update_img();
                 }
+
+                // Events: resize/scroll (page layout moves), image load (size known), element resize (CSS changes)
+                window.addEventListener('resize', refresh);
+                window.addEventListener('scroll', refresh, { passive: true });
+
+                if (img_canvas.complete && img_canvas.naturalWidth) refresh();
+                else img_canvas.addEventListener('load', refresh);
+
+                // Watch for size changes of the IMG via ResizeObserver (e.g., responsive layout)
+                if ('ResizeObserver' in window) {
+                    const ro = new ResizeObserver(refresh);
+                    ro.observe(img_canvas);
+                }
+
+                socket.onmessage = function (event) {
+                    const msg = JSON.parse(event.data);
+                    if (!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.vord_person_channel) {
+                        return;
+                    }
+
+                    const info = JSON.parse(msg["SUBSCRIBE"][2]);
+                    switch (info.type) {
+                        case "detect":
+                            console.log(info.objects);
+                            m_detected_objects = info.objects;
+                            detectionsToAreas(m_detected_objects).then(res => {
+                                rects = res;
+                                refresh();
+                            });
+                            break;
+                    }
+                };
+
+                socket.onopen = function () {
+                    console.log("webdis connection established");
+                    if (m_options.vord_person_channel) {
+                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.vord_person_channel]));
+                    }
+                };
+
+                socket.onclose = function () {
+                    console.log("webdis connection closed");
+                };
+
+                socket.onerror = function (error) {
+                    console.log(`Error: ${error.message}`);
+                };
+            },
+            subscribe_vord_tree: () => {
+
+                const socket = new WebSocket(m_options.webdis_url);
+
+                let m_detected_objects = [];
+                let rects = [];
+                let hoverId = null;
+                // [{ "id": "A", "x": 20, "y": 20, "w": 120, "h": 60, "label": "Area A", "href": "" }];
+
+                const img_canvas = document.getElementById('img-left-top');
+                function detectionsToAreas(detections) {
+                    // Create an array of Promises (one per detection)
+                    const promises = detections.map((d, idx) => {
+                        return new Promise((resolve) => {
+                            const b = Array.isArray(d.bbox) ? d.bbox : [0, 0, 0, 0];
+
+                            let x = b[0] ?? 0;
+                            let y = b[1] ?? 0;
+                            let w = 0;
+                            let h = 0;
+
+                            if (b.length >= 4) {
+                                // If b looks like [xmin, ymin, xmax, ymax]
+                                const looksLikeXYXY = b[2] > x && b[3] > y;
+                                if (looksLikeXYXY) {
+                                    w = b[2] - x;
+                                    h = b[3] - y;
+                                } else {
+                                    // Otherwise assume [x, y, w, h]
+                                    w = b[2];
+                                    h = b[3];
+                                }
+                            }
+
+                            // Generate id: A, B, C ... then A1, B1... after 26
+                            const base = String.fromCharCode(65 + (idx % 26));
+                            const suffix = idx >= 26 ? String(Math.floor(idx / 26)) : "";
+                            const id = base + suffix;
+
+                            const toInt = v => Math.max(0, Math.round(v));
+
+                            let img = null;
+                            if (d.mask) {
+                                img = new Image();
+                                img.src = "data:image/png;base64," + d.mask;
+
+                                // When image loads successfully
+                                img.onload = () => {
+                                    console.log("Image loaded:", img.width, img.height);
+                                    resolve({
+                                        id,
+                                        x: toInt(x),
+                                        y: toInt(y),
+                                        w: toInt(w),
+                                        h: toInt(h),
+                                        label: d.label ?? String(d.class_id ?? ""),
+                                        href: "",
+                                        score: (d.score * 100).toFixed(0),
+                                        img,
+                                    });
+                                };
+
+                                // When image fails to load
+                                img.onerror = (err) => {
+                                    console.error("Image load error:", err);
+                                    resolve({
+                                        id,
+                                        x: toInt(x),
+                                        y: toInt(y),
+                                        w: toInt(w),
+                                        h: toInt(h),
+                                        label: d.label ?? String(d.class_id ?? ""),
+                                        href: "",
+                                        score: (d.score * 100).toFixed(0),
+                                        img: null,
+                                    });
+                                };
+                            } else {
+                                // No mask provided → resolve immediately
+                                resolve({
+                                    id,
+                                    x: toInt(x),
+                                    y: toInt(y),
+                                    w: toInt(w),
+                                    h: toInt(h),
+                                    label: d.label ?? String(d.class_id ?? ""),
+                                    href: "",
+                                    score: (d.score * 100).toFixed(0),
+                                    img: null,
+                                });
+                            }
+                        });
+                    });
+
+                    // Return a Promise that resolves when all images are loaded
+                    return Promise.all(promises);
+                }
+
+
+                // Image→display scale (natural pixels -> CSS pixels)
+                function getScale() {
+                    const scaleX = (img_canvas.width/2/512)/2;
+                    const scaleY = img_canvas.height/512/2;
+                    return { scaleX, scaleY };
+                }
+                plugin.update_img_overlays.push( (obj, ctx) => {
+                    const { scaleX, scaleY } = getScale();
+                    for (const r of rects) {
+                        const x = Math.round(r.x * scaleX);
+                        const y = Math.round(r.y * scaleY);
+                        const w = Math.round(r.w * scaleX);
+                        const h = Math.round(r.h * scaleY);
+                        const hover = r.id === hoverId;
+
+                        ctx.fillStyle = hover ? 'rgba(255,255,255,0.25)' : 'rgba(0,153,255,0.18)';
+                        ctx.fillRect(x, y, w, h);
+
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = 'rgba(43, 255, 0, 0.95)';
+                        ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+
+                        if (r.img && r.img.width != 0 && r.img.height != 0) {
+                            ctx.globalAlpha = 0.5;
+                            ctx.drawImage(r.img, 0, 0, r.img.width * scaleX, r.img.height * scaleY);
+                            ctx.globalAlpha = 1.0;
+                        }
+
+                        const label = r.label ?? r.id;
+                        ctx.font = '600 13px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+                        const m = ctx.measureText(label);
+                        const bgW = m.width + 12, bgH = 20;
+                        const tx = x + 6, ty = (y - 8 < 0) ? (y + 18) : (y - 8);
+                        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                        ctx.fillRect(tx - 6, ty - 14, bgW, bgH);
+                        ctx.fillStyle = 'white';
+                        ctx.fillText(`${label}(${r.score})`, tx, ty);
+                    }
+                } );
 
                 function hit(r, ix, iy) {
                     return ix >= r.x && ix <= r.x + r.w && iy >= r.y && iy <= r.y + r.h;
@@ -1601,7 +1795,7 @@ var create_plugin = (function () {
 
                 socket.onmessage = function (event) {
                     const msg = JSON.parse(event.data);
-                    if (!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.vord_channel) {
+                    if (!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.vord_tree_channel) {
                         return;
                     }
 
@@ -1620,8 +1814,8 @@ var create_plugin = (function () {
 
                 socket.onopen = function () {
                     console.log("webdis connection established");
-                    if (m_options.vord_channel) {
-                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.vord_channel]));
+                    if (m_options.vord_tree_channel) {
+                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.vord_tree_channel]));
                     }
                 };
 
