@@ -18,7 +18,7 @@ var pgis_conf = {
 		"load_html" : true,
 		"webdis_url" : "ws://${window.location.hostname}:7379",
 		"main_pst_channel" : "pserver-forward-pst",
-		"backward_pst_channel" : "pserver-forward-pst",
+		"backward_pst_channel" : "pserver-backward-pst",
 		"auto_drive_key" : "pserver-auto-drive",
 		"info_channel" : "pserver-auto-drive-info",
 		"vord_person_channel" : "picam360-vord-person-output",
