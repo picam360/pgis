@@ -2,19 +2,54 @@
 <html>
 
 <head>
+  <meta charset="utf-8" />
   <title>pgis</title>
   <link rel="stylesheet" href="style.css">
-  <script type="text/javascript" src="index.js"></script>
+  <script type="text/javascript" src="index.js" 　charset="utf-8"></script>
 </head>
 
 <body>
   <h2>pgis</h2>
-  <div class="grid-container">
+
+  <!-- camera settings -->
+  <label for="sel-camera">camera connection:</label>
+  <select id="sel-camera">
+    <option value="sel-cam-osc">OSC</option>
+    <option value="sel-cam-ble">BLE</option>
+  </select>
+  <label for="camera-options">camera options:</label>
+  <input type="text" id="camera-options" value="http://192.168.42.1:80">
+
+  <!-- actions -->
+  <label for="button-container">actions:</label>
+  <div class="button-container">
     <!-- <button onclick="showStatus()">status</button> -->
-    <button onclick="takePicture()">take picture</button>
-    <button onclick="showGpsInfo()">show gps info</button>
+    <button id="take-pic" onclick="takePicture()">take picture with saving gps file</button>
+    <button id="save-gps" onclick="saveGpsInfo()">save gps file</button>
   </div>
-  <textarea cols="80" rows="40" id="textDisplay"></textarea>
+
+  <!-- result display -->
+  <textarea cols="80" rows="10" id="textDisplay"></textarea>
+
+  <!-- gps info -->
+  <ul>
+    <input type="button" id="permit" value="SafariでDeviceOrientationを許可" />
+    <li>【compass】<span id="direction"></span></li>
+    <li>【absolute】<span id="absolute"></span></li>
+    <li>【alpha】<span id="alpha"></span></li>
+    <li>【beta】<span id="beta"></span></li>
+    <li>【gamma】<span id="gamma"></span></li>
+
+    <li>latitude: <span id="latitude"></span></li>
+    <li>longitude: <span id="longitude"></span></li>
+    <li>altitude: <span id="altitude"></span></li>
+    <li>accuracy: <span id="accuracy"></span></li>
+    <li>altitudeAccuracy: <span id="altitudeAccuracy"></span></li>
+    <li>heading: <span id="heading"></span></li>
+    <li>speed: <span id="speed"></span></li>
+    <li>datetime: <span id="datetime"></span></li>
+  </ul>
+
 </body>
 
 </html>

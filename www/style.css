@@ -1,10 +1,26 @@
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-gap: 10px;
+@charset "utf-8";
+
+.button-container {
+  margin: 20px;
+  display: flex;
+  justify-content: space-between;
+  /* 等間隔に配置 */
+}
+
+.button-container button {
+  flex-grow: 1;
+  /* 幅を等分する */
 }
 
 button {
-  width: 30em;
-  height:30em;
+  height: 50px;
+}
+
+ul>li {
+  font-size: small;
+}
+
+label {
+  display: block;
+  margin: 10px;
 }
