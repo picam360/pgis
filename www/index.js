@@ -131,7 +131,7 @@ function lowpassToOrientationData() {
     }
 
     let filteredData = {
-        alpha: m_orientationData[0].absolute,
+        absolute: m_orientationData[0].absolute,
         alpha: m_orientationData[0].alpha,
         beta: m_orientationData[0].beta,
         gamma: m_orientationData[0].gamma
@@ -152,7 +152,7 @@ function lowpassToOrientationData() {
     m_orientationData = [];
 }
 
-function pushOrientationData(event) {
+function old_pushOrientationData(event) {
     const absolute = event.absolute;
     const alpha = event.alpha;
     const beta = event.beta;
@@ -175,6 +175,27 @@ function pushOrientationData(event) {
     updateGpsInfo();
 }
 
+function pushOrientationData(event) {
+    const absolute = event.absolute;
+    const alpha = event.alpha;
+    const beta = event.beta;
+    const gamma = event.gamma;
+
+    const validAlpha = alpha == null ? 0 : alpha;
+    const validBeta = beta == null ? 0 : beta;
+    const validGamma = gamma == null ? 0 : gamma;
+
+    let filteredData = {
+        absolute: absolute,
+        alpha: validAlpha,
+        beta: validBeta,
+        gamma: validGamma
+    };
+    m_filtered_orientationData = filteredData;
+
+    updateGpsInfo();
+}
+
 // ジャイロスコープと地磁気をセンサーから取得
 function getOrientationData() {
 
@@ -182,11 +203,12 @@ function getOrientationData() {
         return null;
     }
 
-    let degrees = compassHeading(
-        m_filtered_orientationData.alpha,
-        m_filtered_orientationData.beta,
-        m_filtered_orientationData.gamma);
-    let direction;
+    // let degrees = compassHeading(
+    //     m_filtered_orientationData.alpha,
+    //     m_filtered_orientationData.beta,
+    //     m_filtered_orientationData.gamma);
+    let degrees = m_filtered_orientationData.alpha;
+    let direction = "N";
     if (
         (degrees > 337.5 && degrees < 360) ||
         (degrees > 0 && degrees < 22.5)
@@ -215,6 +237,35 @@ function getOrientationData() {
         'beta': m_filtered_orientationData.beta,
         'gamma': m_filtered_orientationData.gamma
     };
+}
+
+function compassHeading(alphaNotNom, beta, gamma) {
+    if (alphaNotNom === null) {
+      return '方位不明';
+    }
+
+    const alpha = alphaNotNom ? alphaNotNom % 360 : null;
+  
+    // alphaの値をラジアンに変換する
+    const alphaRad = alpha * (Math.PI / 180);
+  
+    // beta、gammaの値をラジアンに変換する
+    const betaRad = beta * (Math.PI / 180);
+    const gammaRad = gamma * (Math.PI / 180);
+  
+    // デバイスの傾きを考慮して方位を計算する
+    const x = Math.cos(betaRad) * Math.sin(alphaRad);
+    const y = Math.cos(betaRad) * Math.cos(alphaRad);
+    const z = Math.sin(betaRad);
+    const directionRad = Math.atan2(z, -y);
+  
+    // ラジアンから度数に変換する
+    let directionDeg = directionRad * (180 / Math.PI);
+  
+    // 北を0度にするように調整する
+    directionDeg = (directionDeg + 360) % 360;
+
+    return directionDeg;
 }
 
 // 端末の傾き補正（Android用）
