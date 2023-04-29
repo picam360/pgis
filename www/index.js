@@ -1,14 +1,20 @@
 
 const HOST_URL = "http://192.168.42.1:80";//insta360x3
 //const HOST_URL = "http://THETAYR15104038.local";//theta x
+const m_lowpass_alpha = 0.8;
 
 var m_cmd_check_timer;
 var m_os;
 var m_last_gps_info = {}
+let m_orientationData = [];
+let m_posData = {};
+var m_filtered_orientationData = null;
 
 window.addEventListener("DOMContentLoaded", () => {
     initForDeviceOrientation();
     initContorls();
+    setInterval(showGpsInfo, 33);
+    navigator.geolocation.watchPosition(updatePosData);
 });
 
 function initForDeviceOrientation() {
@@ -19,20 +25,20 @@ function initForDeviceOrientation() {
 
         window.addEventListener(
             "deviceorientation",
-            showGpsInfo,
+            pushOrientationData,
             true
         );
     } else if (m_os == "android") {
         window.addEventListener(
             "deviceorientationabsolute",
-            showGpsInfo,
+            pushOrientationData,
             true
         );
     } else {
         window.alert("PC未対応サンプル");
         window.addEventListener(
             "deviceorientationabsolute",
-            showGpsInfo,
+            pushOrientationData,
             true
         );
     }
@@ -76,54 +82,110 @@ function getControlValues(bSaveValueToLocalStorage = true) {
     return res;
 }
 
-function showGpsInfo(event) {
-    let ret = orientation(event);
-    navigator.geolocation.getCurrentPosition((position) => {
-        ret['latitude'] = position.coords.latitude;
-        ret['longitude'] = position.coords.longitude;
-        ret['altitude'] = position.coords.altitude;
-        ret['accuracy'] = position.coords.accuracy;
-        ret['altitudeAccuracy'] = position.coords.altitudeAccuracy;
-        ret['heading'] = position.coords.heading;
-        ret['speed'] = position.coords.speed;
-        var date = new Date(position.timestamp);
-        ret['datetime'] = date.toLocaleString();
-        m_last_gps_info = ret;
+function updatePosData(position) {
+    m_posData = position;
+    updateGpsInfo();
+}
 
-        document.querySelector("#direction").innerHTML = ret['direction'] + " : " + ret['degrees'];
-        document.querySelector("#absolute").innerHTML = ret['absolute'] ?? "-";
-        document.querySelector("#alpha").innerHTML = ret['alpha'] ?? "-";
-        document.querySelector("#beta").innerHTML = ret['beta'] ?? "-";
-        document.querySelector("#gamma").innerHTML = ret['gamma'] ?? "-";
+function updateGpsInfo() {
+    let ortData = getOrientationData();
+    let posData = m_posData;
+    if (ortData && posData) {
+        let h = Object.assign({}, ortData);
+        h['latitude'] = posData.coords.latitude;
+        h['longitude'] = posData.coords.longitude;
+        h['altitude'] = posData.coords.altitude;
+        h['accuracy'] = posData.coords.accuracy;
+        h['altitudeAccuracy'] = posData.coords.altitudeAccuracy;
+        h['heading'] = posData.coords.heading;
+        h['speed'] = posData.coords.speed;
+        h['datetime'] = (new Date(posData.timestamp)).toLocaleString();
+        m_last_gps_info = h;
+    }
+}
 
-        document.querySelector("#latitude").innerHTML = ret['latitude'] ?? "-";
-        document.querySelector("#longitude").innerHTML = ret['longitude'] ?? "-";
-        document.querySelector("#altitude").innerHTML = ret['altitude'] ?? "-";
-        document.querySelector("#accuracy").innerHTML = ret['accuracy'] ?? "-";
-        document.querySelector("#altitudeAccuracy").innerHTML = ret['altitudeAccuracy'] ?? "-";
-        document.querySelector("#heading").innerHTML = ret['heading'] ?? "-";
-        document.querySelector("#speed").innerHTML = ret['speed'] ?? "-";
-        document.querySelector("#datetime").innerHTML = ret['datetime'] ?? "-";
+function showGpsInfo() {
+    if (!m_last_gps_info) {
+        return;
+    }
+    let data = m_last_gps_info;
+    document.querySelector("#direction").innerHTML = data['direction'] + " : " + data['degrees'];
+    document.querySelector("#absolute").innerHTML = data['absolute'] ?? "-";
+    document.querySelector("#alpha").innerHTML = data['alpha'] ?? "-";
+    document.querySelector("#beta").innerHTML = data['beta'] ?? "-";
+    document.querySelector("#gamma").innerHTML = data['gamma'] ?? "-";
+
+    document.querySelector("#latitude").innerHTML = data['latitude'] ?? "-";
+    document.querySelector("#longitude").innerHTML = data['longitude'] ?? "-";
+    document.querySelector("#altitude").innerHTML = data['altitude'] ?? "-";
+    document.querySelector("#accuracy").innerHTML = data['accuracy'] ?? "-";
+    document.querySelector("#altitudeAccuracy").innerHTML = data['altitudeAccuracy'] ?? "-";
+    document.querySelector("#heading").innerHTML = data['heading'] ?? "-";
+    document.querySelector("#speed").innerHTML = data['speed'] ?? "-";
+    document.querySelector("#datetime").innerHTML = data['datetime'] ?? "-";
+}
+
+function lowpassToOrientationData() {
+    if (m_orientationData.length === 0) {
+        return;
+    }
+
+    let filteredData = {
+        alpha: m_orientationData[0].absolute,
+        alpha: m_orientationData[0].alpha,
+        beta: m_orientationData[0].beta,
+        gamma: m_orientationData[0].gamma
+    };
+
+    for (let i = 1; i < m_orientationData.length; i++) {
+        const currentData = m_orientationData[i];
+
+        // ローパスフィルターを適用する
+        filteredData.alpha = m_lowpass_alpha * filteredData.alpha + (1 - m_lowpass_alpha) * currentData.alpha;
+        filteredData.beta = m_lowpass_alpha * filteredData.beta + (1 - m_lowpass_alpha) * currentData.beta;
+        filteredData.gamma = m_lowpass_alpha * filteredData.gamma + (1 - m_lowpass_alpha) * currentData.gamma;
+    }
+
+    m_filtered_orientationData = filteredData;
+
+    // 配列をリセットする
+    m_orientationData = [];
+}
+
+function pushOrientationData(event) {
+    const absolute = event.absolute;
+    const alpha = event.alpha;
+    const beta = event.beta;
+    const gamma = event.gamma;
+
+    // データがnullまたはundefinedである場合は、0に設定する
+    const validAlpha = alpha == null ? 0 : alpha;
+    const validBeta = beta == null ? 0 : beta;
+    const validGamma = gamma == null ? 0 : gamma;
+
+    // 取得したデータを配列に追加する
+    m_orientationData.push({
+        absolute: absolute,
+        alpha: validAlpha,
+        beta: validBeta,
+        gamma: validGamma
     });
+
+    lowpassToOrientationData();
+    updateGpsInfo();
 }
 
 // ジャイロスコープと地磁気をセンサーから取得
-function orientation(event) {
-    let absolute = event.absolute;
-    let alpha = event.alpha;
-    let beta = event.beta;
-    let gamma = event.gamma;
+function getOrientationData() {
 
-    let degrees;
-    if (m_os == "iphone") {
-        // webkitCompasssHeading値を採用
-        degrees = event.webkitCompassHeading;
-
-    } else {
-        // deviceorientationabsoluteイベントのalphaを補正
-        degrees = compassHeading(alpha, beta, gamma);
+    if (!m_filtered_orientationData) {
+        return null;
     }
 
+    let degrees = compassHeading(
+        m_filtered_orientationData.alpha,
+        m_filtered_orientationData.beta,
+        m_filtered_orientationData.gamma);
     let direction;
     if (
         (degrees > 337.5 && degrees < 360) ||
@@ -145,13 +207,13 @@ function orientation(event) {
     } else if (degrees > 292.5 && degrees < 337.5) {
         direction = "NW";
     }
+
     return {
         'direction': direction,
         'degrees': degrees,
-        'absolute': absolute,
-        'alpha': alpha,
-        'beta': beta,
-        'gamma': gamma
+        'alpha': m_filtered_orientationData.alpha,
+        'beta': m_filtered_orientationData.beta,
+        'gamma': m_filtered_orientationData.gamma
     };
 }
 
@@ -237,9 +299,7 @@ function takePicture() {
         camera.takePicture((res) => {
             if (res.status === 'ok') {
                 displayText("!!! The command was sent, but not sure if the picture was taken. You can judge by the shutter sound !!!", false);
-                navigator.geolocation.getCurrentPosition((position) => {
-                    saveGpsInfo();
-                });
+                saveGpsInfo();
             } else {
                 displayText(res.data);
             }
@@ -254,10 +314,8 @@ function takePicture() {
                 let file_url = res.file_url;
                 let a = file_url.split('/');
                 let fname = a[a.length - 1] + ".json";
-                navigator.geolocation.getCurrentPosition((position) => {
-                    downloadGpsInfo(fname, position);
-                    displayText("--- File Downloaded ---", true);
-                });
+                downloadGpsInfo(fname, m_last_gps_info);
+                displayText("--- File Downloaded ---", true);
             } else {
                 displayText(res.data);
             }
@@ -361,9 +419,10 @@ const bleCam_General = class extends iBleCamera {
                 return service.getCharacteristic(this.characteristic_guid);
             })
             .then(characteristic => {
-                return characteristic.writeValue(command_value).then(() => {
-                    return characteristic.readValue();
-                });
+                return characteristic.writeValue(command_value);
+                // return characteristic.writeValue(command_value).then(() => {
+                //     return characteristic.readValue();
+                // });
             })
             .then((data) => {
                 this.cbRes({
