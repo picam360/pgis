@@ -4,52 +4,78 @@
 <head>
   <meta charset="utf-8" />
   <title>pgis</title>
+  <link rel="stylesheet" href="lib/onsenui/css/onsenui.css" />
+  <link rel="stylesheet" href="lib/onsenui/css/onsen-css-components.css" />
+  <script src="lib/onsenui/js/onsenui.min.js"></script>
   <link rel="stylesheet" href="index.css">
+  <script type="text/javascript" src="config.js" 　charset="utf-8"></script>
   <script type="text/javascript" src="index.js" 　charset="utf-8"></script>
 </head>
 
 <body>
   <h2>pgis</h2>
 
-  <!-- camera settings -->
-  <label for="sel-camera">camera connection:</label>
-  <select id="sel-camera">
-    <option value="sel-cam-osc">OSC</option>
-    <option value="sel-cam-ble">BLE</option>
-  </select>
-  <label for="camera-options">camera options:</label>
-  <input type="text" id="camera-options" value="http://192.168.42.1:80">
+  <ons-splitter>
+    <ons-splitter-side id="menu" side="right" width="220px" collapse>
+      <ons-page>
+        <ons-list>
+          <ons-list-item onclick="fn.close()" class="" tappable>
+            <ons-icon icon="ion-ios-close"> 閉じる</ons-icon>
+          </ons-list-item>
+          <!-- <ons-button onclick="stop()" modifier="large" tappable>停止</ons-button> -->
+      </ons-page>
+    </ons-splitter-side>
+    <ons-splitter-content>
+      <ons-navigator swipeable id="content" page="home.html"></ons-navigator>
+    </ons-splitter-content>
+  </ons-splitter>
 
-  <!-- actions -->
-  <label for="button-container">actions:</label>
-  <div class="button-container">
-    <!-- <button onclick="showStatus()">status</button> -->
-    <button id="take-pic" onclick="takePicture()">take picture with saving gps file</button>
-    <button id="save-gps" onclick="saveGpsInfo()">save gps file</button>
-  </div>
+  <template id="home.html">
+    <ons-page id="home">
+      <ons-toolbar>
+        <div class="right">
+          <ons-toolbar-button onclick="fn.open()">
+            <ons-icon icon="md-menu"></ons-icon>
+          </ons-toolbar-button>
+        </div>
+        <div class="center">
+          PGIS
+        </div>
+      </ons-toolbar>
 
-  <!-- result display -->
-  <textarea cols="80" rows="10" id="textDisplay"></textarea>
+      <div class="container">
+        <!-- actions -->
+        <label for="button-container">actions:</label>
+        <div class="button-container">
+          <!-- <button onclick="showStatus()">status</button> -->
+          <button id="take-pic" onclick="pgis.take_picture()">take picture with saving gps file</button>
+          <button id="save-gps" onclick="pgis.download_gps_file()">save gps file</button>
+        </div>
 
-  <!-- gps info -->
-  <ul>
-    <input type="button" id="permit" value="SafariでDeviceOrientationを許可" />
-    <li>【compass】<span id="direction"></span></li>
-    <li>【absolute】<span id="absolute"></span></li>
-    <li>【alpha】<span id="alpha"></span></li>
-    <li>【beta】<span id="beta"></span></li>
-    <li>【gamma】<span id="gamma"></span></li>
+        <!-- result display -->
+        <textarea cols="80" rows="10" id="textDisplay"></textarea>
 
-    <li>latitude: <span id="latitude"></span></li>
-    <li>longitude: <span id="longitude"></span></li>
-    <li>altitude: <span id="altitude"></span></li>
-    <li>accuracy: <span id="accuracy"></span></li>
-    <li>altitudeAccuracy: <span id="altitudeAccuracy"></span></li>
-    <li>heading: <span id="heading"></span></li>
-    <li>speed: <span id="speed"></span></li>
-    <li>datetime: <span id="datetime"></span></li>
-  </ul>
+        <!-- gps info -->
+        <ul>
+          <input type="button" id="permit" value="SafariでDeviceOrientationを許可" />
+          <li>【compass】<span id="direction"></span></li>
+          <li>【absolute】<span id="absolute"></span></li>
+          <li>【alpha】<span id="alpha"></span></li>
+          <li>【beta】<span id="beta"></span></li>
+          <li>【gamma】<span id="gamma"></span></li>
 
+          <li>latitude: <span id="latitude"></span></li>
+          <li>longitude: <span id="longitude"></span></li>
+          <li>altitude: <span id="altitude"></span></li>
+          <li>accuracy: <span id="accuracy"></span></li>
+          <li>altitudeAccuracy: <span id="altitudeAccuracy"></span></li>
+          <li>heading: <span id="heading"></span></li>
+          <li>speed: <span id="speed"></span></li>
+          <li>datetime: <span id="datetime"></span></li>
+        </ul>
+      </div>
+    </ons-page>
+  </template>
 </body>
 
 </html>
