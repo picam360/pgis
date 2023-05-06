@@ -231,41 +231,46 @@ var pgis = (() => {
 
     function take_picture() {
 
-        // create camera
-        prepare_camera();
+        try {
+            // create camera
+            prepare_camera();
 
-        // take picture
-        display_text("taking picture");
-        switch (m_options.camera_conn) {
-            case "bluetooth":
-                m_camera.take_picture((res) => {
-                    if (res.status === 'ok') {
-                        let a = res.body.file_name.split('/');
-                        let fname = a[a.length - 1] + ".json";
-                        download_gps_file(m_last_gps_info, fname);
-                        display_text(`file: ${fname}`);
-                        display_text(`---`);
-                    }
-                    else if (res.status === 'processing') {
-                        display_text(res.body.state);
-                    }
-                    else {
-                        display_text(res.body);
-                    }
-                });
-                break;
-            case "osc":
-                m_camera.take_picture((res) => {
-                    if (res.status === 'ok') {
-                        let a = res.body.file_url.split('/');
-                        let fname = a[a.length - 1] + ".json";
-                        display_text(`file: ${fname}`);
-                        display_text(`---`);
-                    } else {
-                        display_text(res.body);
-                    }
-                });
-                break;
+            // take picture
+            display_text("taking picture");
+            switch (m_options.camera_conn) {
+                case "bluetooth":
+                    m_camera.take_picture((res) => {
+                        if (res.status === 'ok') {
+                            let a = res.body.file_name.split('/');
+                            let fname = a[a.length - 1] + ".json";
+                            download_gps_file(m_last_gps_info, fname);
+                            display_text(`file: ${fname}`);
+                            display_text(`---`);
+                        }
+                        else if (res.status === 'processing') {
+                            display_text(res.body.state);
+                        }
+                        else {
+                            display_text(JSON.stringify(res));
+                        }
+                    });
+                    break;
+                case "osc":
+                    m_camera.take_picture((res) => {
+                        if (res.status === 'ok') {
+                            let a = res.body.file_url.split('/');
+                            let fname = a[a.length - 1] + ".json";
+                            display_text(`file: ${fname}`);
+                            display_text(`---`);
+                        } else {
+                            display_text(res.body);
+                        }
+                    });
+                    break;
+            }
+        }
+        catch (err) {
+            display_text(err);
         }
     }
 
@@ -504,7 +509,7 @@ var pgis = (() => {
                 })
                 .then(characteristic => {
                     this.m_command_wait_timer = setTimeout(
-                        this._command_timeout,
+                        this._command_timeout.bind(this),
                         this.CMD_TIMEOUT_MS);
                     this.m_cur_command = command_name;
                     return characteristic.writeValue(command_value);
@@ -525,7 +530,12 @@ var pgis = (() => {
         _command_timeout() {
             this.m_command_wait_timer = null;
             this.m_is_abend = true;
-            throw new Error(`command timeout: ${this.m_cur_command}`);
+            this.m_callback({
+                'status': 'command_timeout',
+                'body': {
+                    'command': this.m_cur_command
+                }
+            });
         }
 
         _stop_command_timer() {
