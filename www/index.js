@@ -4,9 +4,10 @@ var pgis = (() => {
 
     var m_options = {};
     var m_last_gps_info = {}
-    let m_ort_data = [];
-    let m_pos_data = {};
+    var m_ort_data = [];
+    var m_pos_data = {};
     var m_filtered_ort_data = null;
+    var m_camera = null;
 
     /**
      * onsen ui
@@ -212,65 +213,84 @@ var pgis = (() => {
         };
     }
 
+    function prepare_camera() {
+        if (m_camera && m_camera.is_abend()) {
+            m_camera = null;
+        }
+
+        if (!m_camera) {
+            let camera_options = m_options.camera_options[m_options.camera_option_name];
+            if (m_options.camera_conn === "bluetooth") {
+                m_camera = bleApi.createCamera('unspecified', camera_options);
+            }
+            else if (m_options.camera_conn === "osc") {
+                m_camera = oscApi.create_camera('unspecified', camera_options)
+            }
+        }
+    }
+
     function take_picture() {
-        display_text("takeing...");
 
-        let camera_options = m_options.camera_options[m_options.camera_option_name];
-        if (m_options.camera_conn === "bluetooth") {
-            let camera = bleApi.createCamera('unspecified', camera_options);
-            camera.take_picture((res) => {
-                if (res.status === 'ok') {
-                    display_text("!!! The command was sent, but not sure if the picture was taken. You can judge by the shutter sound !!!", false);
-                    download_gps_file();
-                } else {
-                    display_text(res.data);
-                }
-            });
-        }
-        else if (m_options.camera_conn === "osc") {
-            let camera = oscApi.create_camera('unspecified', camera_options)
-            camera.take_picture((res) => {
-                if (res.status === 'ok') {
-                    let file_url = res.file_url;
-                    let a = file_url.split('/');
-                    let fname = a[a.length - 1] + ".json";
-                    downloadGpsInfo(fname, m_last_gps_info);
-                    display_text("--- File Downloaded ---", true);
-                } else {
-                    display_text(res.data);
-                }
-            });
+        // create camera
+        prepare_camera();
+
+        // take picture
+        display_text("taking picture");
+        switch (m_options.camera_conn) {
+            case "bluetooth":
+                m_camera.take_picture((res) => {
+                    if (res.status === 'ok') {
+                        let a = res.body.file_name.split('/');
+                        let fname = a[a.length - 1] + ".json";
+                        download_gps_file(m_last_gps_info, fname);
+                        display_text(`file: ${fname}`);
+                        display_text(`---`);
+                    }
+                    else if (res.status === 'processing') {
+                        display_text(res.body.state);
+                    }
+                    else {
+                        display_text(res.body);
+                    }
+                });
+                break;
+            case "osc":
+                m_camera.take_picture((res) => {
+                    if (res.status === 'ok') {
+                        let a = res.body.file_url.split('/');
+                        let fname = a[a.length - 1] + ".json";
+                        display_text(`file: ${fname}`);
+                        display_text(`---`);
+                    } else {
+                        display_text(res.body);
+                    }
+                });
+                break;
         }
     }
 
-    function download_gps_file() {
-        let date = new Date();
-        let fname = date.toLocaleString().replace(/\//g, '-').replace(/:/g, '-') + ".json";
-        downloadGpsInfo(fname, m_last_gps_info);
-        display_text("--- File Downloaded ---", true);
-    }
+    function download_gps_file(gps_info_json, fname) {
 
-    function downloadGpsInfo(fileName, gpsInfoJson) {
+        if (!fname) {
+            let date = new Date();
+            fname = date.toLocaleString().replace(/\//g, '-').replace(/:/g, '-') + ".json";
+        }
 
-        const text = JSON.stringify(gpsInfoJson);
+        const text = JSON.stringify(gps_info_json);
         const blob = new Blob([text], { type: 'application/json' });
 
         let dummy_a_el = document.createElement('a');
         document.body.appendChild(dummy_a_el);
         dummy_a_el.href = window.URL.createObjectURL(blob);
-        dummy_a_el.download = fileName;
+        dummy_a_el.download = fname;
         dummy_a_el.click();
         document.body.removeChild(dummy_a_el);
+        return fname;
     }
 
-    function display_text(text, bAppend = false) {
+    function display_text(text) {
         let e = document.getElementById("textDisplay");
-        if (bAppend) {
-            e.value += text;
-        }
-        else {
-            e.value = text;
-        }
+        e.value = (text + '\n' + e.value);
     }
 
     /**
@@ -281,9 +301,9 @@ var pgis = (() => {
         static createCamera(camera_type, camera_options) {
             switch (camera_type) {
                 case 'insta360x3':
-                    return new bleCam_General(camera_options);
+                    return new bleCam_Insta360x3(camera_options);
                 default:// not confirmed cameras.
-                    return new bleCam_General(camera_options);
+                    return new bleCam_Insta360x3(camera_options);
             }
         }
     }
@@ -295,77 +315,239 @@ var pgis = (() => {
             }
         }
         take_picture(cbRes) { throw new Error('not implemented'); }
+        m_is_abend() { throw new Error('not implemented'); }
     }
 
-    const bleCam_General = class extends IBLECamera {
+    const bleCam_Insta360x3 = class extends IBLECamera {
         constructor(camera_options) {
             super();
-            this.camera_options = camera_options;
-            this.service_guid = camera_options.service_guid;
-            this.primary_service_guid = camera_options.primary_service_guid;
-            this.characteristic_guid = camera_options.characteristic_guid;
-            this.command_values = camera_options.command_values;
-            this.device = null;
-            this.callback = null;
+            this.CMD_TIMEOUT_MS = 20000;
+            this.m_camera_options = camera_options;
+            this.m_service_guid = camera_options.service_guid;
+            this.m_primary_service_guid = camera_options.primary_service_guid;
+            this.m_characteristic_write_guid = camera_options.characteristic_write_guid;
+            this.m_characteristic_read_guid = camera_options.characteristic_read_guid;
+            this.m_command_values = camera_options.command_values;
+            this.m_device = null;
+            this.m_callback = null;
+            this.m_b_subsc_notfications = false;
+            this.m_command_wait_timer = null;
+            this.m_is_abend = false;
+            this.m_cur_command;
+            this.m_res_text;
+            this.m_n_res_bytes;
+            this.m_command_step;
         }
 
-        take_picture(callback) {
-            this.callback = callback;
-            let command_value = this.command_values['take_picture'];
-            let next_cmd = () => {
-                this._command(command_value);
-            };
-            if (!this.device) {
-                this._connect_device(next_cmd);
-            }
-            else {
-                next_cmd();
-            }
-        }
-
-        _command(command_value) {
-            this.device.gatt.connect()
-                .then(server => {
-                    return server.getPrimaryService(this.primary_service_guid);
-                })
-                .then(service => {
-                    return service.getCharacteristic(this.characteristic_guid);
-                })
-                .then(characteristic => {
-                    return characteristic.writeValue(command_value);
-                    // return characteristic.writeValue(command_value).then(() => {
-                    //     return characteristic.readValue();
-                    // });
-                })
-                .then((data) => {
-                    this.callback({
-                        'status': 'ok'
-                    });
-                })
-                .catch(err => {
-                    this.callback({
-                        'status': 'connection_failed',
-                        'data': err
-                    });
-                });
+        is_abend() {
+            return this.m_is_abend;
         }
 
         _connect_device(next_action) {
             navigator.bluetooth.requestDevice({
                 filters: [{
-                    services: [this.service_guid]
+                    services: [this.m_service_guid]
                 }]
             })
                 .then(device => {
-                    this.device = device;
-                    next_action();
+                    this.m_device = device;
+                    this._subsc_nogifications(
+                        next_action
+                    )
                 })
                 .catch(err => {
-                    this.callback({
+                    throw new Error({
                         'status': 'connection_failed',
-                        'data': err
+                        'body': err
                     });
                 });
+        }
+
+        _handle_notification(data) {
+            if (this.m_cur_command === "take_picture") {
+                const CMD_LEN = 16;
+                let offset = 0;
+                let u8a = new Uint8Array(data.buffer);
+                if (u8a.byteLength >= CMD_LEN) {
+
+                    // on shuttred.
+                    if (u8a[4] == 0x04 &&
+                        u8a[7] == 0x10 &&
+                        u8a[9] == 0x02 &&
+                        u8a[10] == 0xff) {
+                        if (this.m_command_step == 0) {
+                            this.m_callback({
+                                'status': 'processing',
+                                'body': {
+                                    'state': "shuttered"
+                                }
+                            });
+                            this.m_command_step++;
+                        }
+                    }
+
+                    // on start saving image.
+                    if (u8a[4] == 0x04 &&
+                        u8a[7] == 0x0a &&
+                        u8a[9] == 0x02 &&
+                        u8a[10] == 0xff) {
+                        this.m_callback({
+                            'status': 'processing',
+                            'body': {
+                                'state': "saving image"
+                            }
+                        });
+                        this.m_command_step++;
+                    }
+
+                    // on iamge saved.
+                    if (u8a[4] == 0x04 &&
+                        u8a[7] == 0xc8 &&
+                        u8a[9] == 0x02 &&
+                        u8a[10] == 0x0c) {
+                        this.m_n_res_bytes = u8a[0];
+                        offset = 16;
+                        this._stop_command_timer();
+                    }
+                }
+                if (this.m_n_res_bytes > 0) {
+                    let a0 = Array.prototype.slice.call(u8a, offset);
+                    this.m_res_text += String.fromCharCode.apply(null, a0);
+                    this.m_n_res_bytes -= (a0.length + offset);
+                    if (this.m_n_res_bytes == 0) {
+                        this.m_res_text = trimNullAndDLE(this.m_res_text);
+                        console.log(this.m_res_text);
+                        this.m_callback({
+                            'status': 'ok',
+                            'body': {
+                                'file_name': this.m_res_text
+                            }
+                        });
+                        this._clear_command_result();
+                    }
+                }
+            }
+            else {
+                this._stop_command_timer();
+            }
+
+            let hexString = "";
+            for (let i = 0; i < data.byteLength; i++) {
+                let byte = data.getUint8(i).toString(16);
+                if (byte.length === 1) {
+                    byte = "0" + byte;
+                }
+                hexString += byte;
+            }
+            console.log(hexString);
+        }
+
+        _subsc_nogifications(on_connected) {
+            if (this.m_b_subsc_notfications) {
+                if (on_connected) {
+                    on_connected();
+                }
+                return;
+            }
+
+            if (!this.m_device) {
+                throw new Error("error: _subsc_nogifications: device must be connected");
+            }
+            else {
+                this.m_device.gatt.connect()
+                    .then(server => {
+                        return server.getPrimaryService(this.m_primary_service_guid);
+                    })
+                    .then(service => {
+                        return service.getCharacteristic(this.m_characteristic_read_guid);
+                    })
+                    .then(characteristic => {
+                        characteristic.startNotifications()
+                            .then(() => {
+                                this.m_b_subsc_notfications = true;
+                                console.log('notification subscribed...');
+                                characteristic.addEventListener('characteristicvaluechanged',
+                                    (event) => {
+                                        this._handle_notification(characteristic.value);
+                                    });
+                                if (on_connected) {
+                                    on_connected();
+                                }
+                            })
+                            .catch(error => {
+                                console.error(error);
+                            });
+                    });
+            }
+        }
+
+        _clear_command_result() {
+            this.m_cur_command = '';
+            this.m_n_res_bytes = 0;
+            this.m_res_text = '';
+            this.m_command_step = 0;
+        }
+
+        _command_write(command_name, command_value) {
+            if (this.m_command_wait_timer) {
+                console.log('command skipped because prev command runnning')
+                return;
+            }
+
+            this._clear_command_result();
+            this.m_device.gatt.connect()
+                .then(server => {
+                    return server.getPrimaryService(this.m_primary_service_guid);
+                })
+                .then(service => {
+                    return service.getCharacteristic(this.m_characteristic_write_guid);
+                })
+                .then(characteristic => {
+                    this.m_command_wait_timer = setTimeout(
+                        this._command_timeout,
+                        this.CMD_TIMEOUT_MS);
+                    this.m_cur_command = command_name;
+                    return characteristic.writeValue(command_value);
+                })
+                .then((data) => {
+                    // this.m_callback({
+                    //     'status': 'ok'
+                    // });
+                })
+                .catch(err => {
+                    throw new Error({
+                        'status': 'connection_failed',
+                        'body': err
+                    });
+                });
+        }
+
+        _command_timeout() {
+            this.m_command_wait_timer = null;
+            this.m_is_abend = true;
+            throw new Error(`command timeout: ${this.m_cur_command}`);
+        }
+
+        _stop_command_timer() {
+            if (this.m_command_wait_timer) {
+                clearTimeout(this.m_command_wait_timer);
+                this.m_command_wait_timer = null;
+            }
+        }
+
+        take_picture(callback) {
+            this.m_callback = callback;
+            let command_name = 'take_picture';
+            let command_value = this.m_command_values[command_name];
+            let next_cmd = () => {
+                this._command_write(command_name, command_value);
+            };
+            if (!this.m_device) {
+                this._connect_device(next_cmd);
+            }
+            else {
+                next_cmd();
+            }
         }
     }
 
@@ -392,6 +574,7 @@ var pgis = (() => {
             }
         }
         take_picture(cbRes) { throw new Error('not implemented'); }
+        is_abend() { throw new Error('not implemented'); }
     }
 
     const oscCam_General = class extends IOSCCamera {
@@ -418,8 +601,9 @@ var pgis = (() => {
                                 stopTimer();
                                 callback({
                                     'status': 'ok',
-                                    'file_url': json.results.fileUrl,
-                                    'data': json
+                                    'body': {
+                                        'file_url': json.results.fileUrl
+                                    }
                                 });
                             }
                         }, err => {
@@ -430,13 +614,13 @@ var pgis = (() => {
                 else {
                     callback({
                         'status': 'invalid_response_from_camera',
-                        'data': json
+                        'body': json
                     });
                 }
             }, (err) => {
                 callback({
                     'status': 'invalid_response_from_camera',
-                    'data': err
+                    'body': err
                 });
             });
         }
@@ -512,7 +696,8 @@ var pgis = (() => {
             console.log(m_options);
         },
         download_gps_file: () => {
-            download_gps_file();
+            let fname = download_gps_file();
+            display_text(`file: ${fname}`);
         },
         take_picture: () => {
             take_picture();
