@@ -6,8 +6,14 @@
   <title>pgis</title>
   <link rel="stylesheet" href="lib/onsenui/css/onsenui.css" />
   <link rel="stylesheet" href="lib/onsenui/css/onsen-css-components.css" />
-  <script src="lib/onsenui/js/onsenui.min.js"></script>
+  <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="lib/leaflet-locatecontrol/L.Control.Locate.min.css" />
   <link rel="stylesheet" href="index.css">
+
+  <script type="text/javascript" src="license.js" 　charset="utf-8"></script>
+  <script type="text/javascript" src="lib/onsenui/js/onsenui.min.js"></script>
+  <script type="text/javascript" src="lib/leaflet/leaflet.js"></script>
+  <script type="text/javascript" src="lib/leaflet-locatecontrol/L.Control.Locate.min.js"></script>
   <script type="text/javascript" src="config.js" 　charset="utf-8"></script>
   <script type="text/javascript" src="tools.js" 　charset="utf-8"></script>
   <script type="text/javascript" src="index.js" 　charset="utf-8"></script>
@@ -45,6 +51,9 @@
       </ons-toolbar>
 
       <div class="container">
+        <!-- map  -->
+        <div id="mapid"></div>
+
         <!-- actions -->
         <label for="button-container">actions:</label>
         <div class="button-container">

@@ -1,4 +1,3 @@
-
 var pgis = (() => {
     const LOWPASS_ALPHA = 0.8;
 
@@ -39,6 +38,23 @@ var pgis = (() => {
         subsc_device_orientation();
         setInterval(show_gps_info, 33);
         navigator.geolocation.watchPosition(update_pos_data);
+
+        var map = 
+            L.map('mapid', { attributionControl:true })
+            .setView([51.505, -0.09], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+            maxZoom: 18,
+        }).addTo(map);
+
+        lc = L.control
+            .locate({
+                strings: {
+                    title: "Show me where I am, yo!"
+                }
+            })
+            .addTo(map);
     });
 
     function subsc_device_orientation() {
@@ -106,6 +122,10 @@ var pgis = (() => {
             h['speed'] = pos.coords.speed;
             h['datetime'] = (new Date(pos.timestamp)).toLocaleString();
             m_last_gps_info = h;
+
+            // if(m_ol_map){
+            //     m_ol_map.getView().setCenter([pos.coords.latitude, pos.coords.longitude]);
+            // }
         }
     }
 
