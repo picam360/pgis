@@ -7,6 +7,13 @@ var pgis = (() => {
     var m_pos_data = {};
     var m_filtered_ort_data = null;
     var m_camera = null;
+    var m_point_handler = null;
+    var m_map = null;
+    var m_map_marker_layer = null;
+    var m_map_markers = {};
+    var m_map_selected_marker = null;
+    var m_default_marker_size = null;
+    var m_e_fileinput = null;
 
     /**
      * onsen ui
@@ -39,13 +46,14 @@ var pgis = (() => {
         setInterval(show_gps_info, 33);
         navigator.geolocation.watchPosition(update_pos_data);
 
-        var map = 
-            L.map('mapid', { attributionControl:true })
-            .setView([51.505, -0.09], 13);
+        var map =
+            L.map('mapid', { attributionControl: true })
+                .setView([35.636, 139.719], 18);
+        m_map = map;
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-            maxZoom: 18,
+            maxZoom: 24,
         }).addTo(map);
 
         lc = L.control
@@ -55,6 +63,18 @@ var pgis = (() => {
                 }
             })
             .addTo(map);
+
+        map.on('click', function (e) {
+            var coord = e.latlng;
+            // Update info div
+            document.getElementById('info').innerHTML =
+                `x${coord.lng}y${coord.lat}z${0}`;
+        });
+
+        m_map_marker_layer = L.layerGroup().addTo(map);
+
+        m_point_handler = new LocalStoragePointHanlder();
+        refresh_point_layer();
     });
 
     function subsc_device_orientation() {
@@ -94,7 +114,7 @@ var pgis = (() => {
                 true
             );
         } else {
-            window.alert("PC未対応サンプル");
+            console.log("PC非対応")
             window.addEventListener(
                 "deviceorientationabsolute",
                 push_ort_data,
@@ -115,11 +135,12 @@ var pgis = (() => {
             let h = Object.assign({}, ort);
             h['latitude'] = pos.coords.latitude;
             h['longitude'] = pos.coords.longitude;
-            h['altitude'] = pos.coords.altitude;
+            h['altitude'] = pos.coords.altitude ?? 0;
             h['accuracy'] = pos.coords.accuracy;
             h['altitudeAccuracy'] = pos.coords.altitudeAccuracy;
             h['heading'] = pos.coords.heading;
             h['speed'] = pos.coords.speed;
+            h['timestamp'] = pos.timestamp;
             h['datetime'] = (new Date(pos.timestamp)).toLocaleString();
             m_last_gps_info = h;
 
@@ -127,6 +148,38 @@ var pgis = (() => {
             //     m_ol_map.getView().setCenter([pos.coords.latitude, pos.coords.longitude]);
             // }
         }
+    }
+
+    function convert_gpsinfo_to_gpspoint(pgs_info) {
+
+        // info hash
+        // 'direction': direction,
+        // 'degrees': degrees,
+        // 'alpha': m_filtered_ort_data.alpha,
+        // 'beta': m_filtered_ort_data.beta,
+        // 'gamma': m_filtered_ort_data.gamma
+        // h['latitude'] = pos.coords.latitude;
+        // h['longitude'] = pos.coords.longitude;
+        // h['altitude'] = pos.coords.altitude;
+        // h['accuracy'] = pos.coords.accuracy;
+        // h['altitudeAccuracy'] = pos.coords.altitudeAccuracy;
+        // h['heading'] = pos.coords.heading;
+        // h['speed'] = pos.coords.speed;
+        // h['timestamp'] = pos.timestamp;
+        // h['datetime'] = (new Date(pos.timestamp)).toLocaleString();
+
+        let inf = pgs_info;
+        let p = empty_gps_point();
+        p.gps = `x${inf.longitude}y${inf.latitude}z${inf.altitude}`;
+        p.compass = inf.degrees;
+        p.x = inf.longitude;
+        p.y = inf.latitude;
+        p.z = inf.altitude;
+        p.accuracy = inf.accuracy;
+        p.altitudeAccuracy = inf.altitudeAccuracy;
+        p.timestamp = inf.timestamp;
+        p.datetime = inf.datetime;
+        return p;
     }
 
     function show_gps_info() {
@@ -249,59 +302,14 @@ var pgis = (() => {
         }
     }
 
-    function take_picture() {
-
-        try {
-            // create camera
-            prepare_camera();
-
-            // take picture
-            display_text("taking picture");
-            switch (m_options.camera_conn) {
-                case "bluetooth":
-                    m_camera.take_picture((res) => {
-                        if (res.status === 'ok') {
-                            let a = res.body.file_name.split('/');
-                            let fname = a[a.length - 1] + ".json";
-                            download_gps_file(m_last_gps_info, fname);
-                            display_text(`file: ${fname}`);
-                            display_text(`---`);
-                        }
-                        else if (res.status === 'processing') {
-                            display_text(res.body.state);
-                        }
-                        else {
-                            display_text(JSON.stringify(res));
-                        }
-                    });
-                    break;
-                case "osc":
-                    m_camera.take_picture((res) => {
-                        if (res.status === 'ok') {
-                            let a = res.body.file_url.split('/');
-                            let fname = a[a.length - 1] + ".json";
-                            display_text(`file: ${fname}`);
-                            display_text(`---`);
-                        } else {
-                            display_text(res.body);
-                        }
-                    });
-                    break;
-            }
-        }
-        catch (err) {
-            display_text(err);
-        }
-    }
-
-    function download_gps_file(gps_info_json, fname) {
+    function download_json_file(json, fname) {
 
         if (!fname) {
             let date = new Date();
             fname = date.toLocaleString().replace(/\//g, '-').replace(/:/g, '-') + ".json";
         }
 
-        const text = JSON.stringify(gps_info_json);
+        const text = JSON.stringify(json);
         const blob = new Blob([text], { type: 'application/json' });
 
         let dummy_a_el = document.createElement('a');
@@ -719,18 +727,163 @@ var pgis = (() => {
         return baseUrl;
     }
 
+    function set_scale_marker(marker, ratio = 1.0) {
+        let icon = marker.options.icon;
+        icon.options.iconSize = [
+            m_default_marker_size[0] * ratio,
+            m_default_marker_size[1] * ratio];
+        marker.setIcon(icon);
+    }
+
+    function refresh_point_layer() {
+        m_map_marker_layer.clearLayers();
+        m_map_markers = {};
+        m_map_selected_marker = null;
+        var point_ids = m_point_handler.get_point_id_list();
+        point_ids.forEach((id) => {
+            let p = m_point_handler.get_point(id);
+            if (p) {
+                let marker = L.marker([p.y, p.x]).addTo(m_map_marker_layer);
+                m_map_markers[marker._leaflet_id] = p;
+                if (!m_default_marker_size) {
+                    let icon = marker.options.icon;
+                    m_default_marker_size = [icon.options.iconSize[0], icon.options.iconSize[1]];
+                }
+                set_scale_marker(marker, 1.0);
+
+                marker.on('click', function () {
+                    let prev = m_map_selected_marker;
+                    m_map_selected_marker = marker;
+
+                    if (!m_default_marker_size) {
+                        let icon = marker.options.icon;
+                        m_default_marker_size = [icon.options.iconSize[0], icon.options.iconSize[1]];
+                    }
+                    if (prev) {
+                        set_scale_marker(prev, 1.0);
+                    }
+                    set_scale_marker(m_map_selected_marker, 1.3);
+                });
+            }
+        });
+    }
+
     var self = {
         init: (options) => {
             m_options = options;
             console.log("loading config...");
             console.log(m_options);
         },
-        download_gps_file: () => {
-            let fname = download_gps_file();
-            display_text(`file: ${fname}`);
-        },
+
         take_picture: () => {
-            take_picture();
+            try {
+                // keep pos.
+                var cur_pos = convert_gpsinfo_to_gpspoint(m_last_gps_info);
+
+                // create camera
+                prepare_camera();
+
+                // take picture
+                display_text("taking picture");
+                switch (m_options.camera_conn) {
+                    case "bluetooth":
+                        m_camera.take_picture((res) => {
+                            if (res.status === 'ok') {
+                                let a = res.body.file_name.split('/');
+                                let fname = a[a.length - 1];
+                                cur_pos.file = fname;
+                                m_point_handler.set_point(cur_pos);
+                                refresh_point_layer();
+                                display_text(`file: ${fname}`);
+                                display_text(`---`);
+                            }
+                            else if (res.status === 'processing') {
+                                display_text(res.body.state);
+                            }
+                            else {
+                                display_text(JSON.stringify(res));
+                            }
+                        });
+                        break;
+                    case "osc":
+                        m_camera.take_picture((res) => {
+                            if (res.status === 'ok') {
+                                let a = res.body.file_url.split('/');
+                                let fname = a[a.length - 1] + ".json";
+                                display_text(`file: ${fname}`);
+                                display_text(`---`);
+                            } else {
+                                display_text(res.body);
+                            }
+                        });
+                        break;
+                }
+            }
+            catch (err) {
+                display_text(err);
+            }
+        },
+        save_current_pos: () => {
+            if (m_last_gps_info) {
+                var p = convert_gpsinfo_to_gpspoint(m_last_gps_info);
+                m_point_handler.set_point(p);
+                refresh_point_layer();
+            }
+        },
+        remove_pos: () => {
+            if (m_map_selected_marker) {
+                var p = m_map_markers[m_map_selected_marker._leaflet_id];
+                if (p) {
+                    m_point_handler.delete_point(p.id);
+                    refresh_point_layer();
+                }
+            }
+        },
+        clear_pos: () => {
+            var point_ids = m_point_handler.get_point_id_list();
+            point_ids.forEach((id) => {
+                let p = m_point_handler.get_point(id);
+                if (p) {
+                    m_point_handler.delete_point(p.id);
+                }
+            });
+            refresh_point_layer();
+        },
+        download_points: () => {
+            let point_ids = m_point_handler.get_point_id_list();
+            let array = [];
+            point_ids.forEach(id => {
+                var p = m_point_handler.get_point(id);
+                if (p) {
+                    array.push(p);
+                }
+            });
+            download_json_file(array);
+        },
+        load_points: () => {
+            if (!m_e_fileinput) {
+                m_e_fileinput = document.getElementById('file-input');
+                m_e_fileinput.addEventListener('change', function (e) {
+                    var file = e.target.files[0];
+                    if (!file) return;
+
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        var contents = e.target.result;
+                        var json = JSON.parse(contents);
+                        console.log(json);
+
+                        self.clear_pos();
+
+                        json.forEach(p => {
+                            m_point_handler.set_point(p);
+                        });
+                        refresh_point_layer();
+                    };
+                    reader.readAsText(file);
+                });
+            }
+            m_e_fileinput.click();
         }
     }
     return self;

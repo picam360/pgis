@@ -16,6 +16,7 @@
   <script type="text/javascript" src="lib/leaflet-locatecontrol/L.Control.Locate.min.js"></script>
   <script type="text/javascript" src="config.js" 　charset="utf-8"></script>
   <script type="text/javascript" src="tools.js" 　charset="utf-8"></script>
+  <script type="text/javascript" src="point_server.js" 　charset="utf-8"></script>
   <script type="text/javascript" src="index.js" 　charset="utf-8"></script>
 </head>
 
@@ -52,14 +53,19 @@
 
       <div class="container">
         <!-- map  -->
+        <div id="info">Click on the map to see the coordinates here.</div>
         <div id="mapid"></div>
 
         <!-- actions -->
         <label for="button-container">actions:</label>
         <div class="button-container">
           <!-- <button onclick="showStatus()">status</button> -->
-          <button id="take-pic" onclick="pgis.take_picture()">take picture with saving gps file</button>
-          <button id="save-gps" onclick="pgis.download_gps_file()">save gps file</button>
+          <button onclick="pgis.take_picture()">Take picture (gps)</button>
+          <button onclick="pgis.save_current_pos()">Add current pos</button>
+          <button onclick="pgis.remove_pos()">Remove selected pos</button>
+          <button onclick="pgis.clear_pos()">Clear pos</button>
+          <button onclick="pgis.download_points()">Download points</button>
+          <button onclick="pgis.load_points()">Load points</button>
         </div>
 
         <!-- result display -->
@@ -83,6 +89,9 @@
           <li>speed: <span id="speed"></span></li>
           <li>datetime: <span id="datetime"></span></li>
         </ul>
+
+        <!-- misc -->
+        <input type="file" id="file-input" accept=".json" style="display: none;" />
       </div>
     </ons-page>
   </template>
