@@ -42,39 +42,45 @@ var pgis = (() => {
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-        subsc_device_orientation();
-        setInterval(show_gps_info, 33);
-        navigator.geolocation.watchPosition(update_pos_data);
+        setTimeout(() => {
+            subsc_device_orientation();
+            setInterval(show_gps_info, 33);
+            navigator.geolocation.watchPosition(update_pos_data);
+            navigator.geolocation.getCurrentPosition((position) => {
+                console.log("current location", position.coords.latitude, position.coords.longitude);
+                m_map.setView([position.coords.latitude, position.coords.longitude], 18);
+            });
 
-        var map =
-            L.map('mapid', { attributionControl: true })
-                .setView([35.636, 139.719], 18);
-        m_map = map;
+            var map =
+                L.map('mapid', { attributionControl: true })
+                    .setView([35.636, 139.719], 18);
+            m_map = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-            maxZoom: 24,
-        }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+                maxZoom: 24,
+            }).addTo(map);
 
-        lc = L.control
-            .locate({
-                strings: {
-                    title: "Show me where I am, yo!"
-                }
-            })
-            .addTo(map);
+            lc = L.control
+                .locate({
+                    strings: {
+                        title: "Show me where I am, yo!"
+                    }
+                })
+                .addTo(map);
 
-        map.on('click', function (e) {
-            var coord = e.latlng;
-            // Update info div
-            document.getElementById('info').innerHTML =
-                `x${coord.lng}y${coord.lat}z${0}`;
-        });
+            map.on('click', function (e) {
+                var coord = e.latlng;
+                // Update info div
+                document.getElementById('info').innerHTML =
+                    `x${coord.lng}y${coord.lat}z${0}`;
+            });
 
-        m_map_marker_layer = L.layerGroup().addTo(map);
+            m_map_marker_layer = L.layerGroup().addTo(map);
 
-        m_point_handler = new LocalStoragePointHanlder();
-        refresh_point_layer();
+            m_point_handler = new LocalStoragePointHanlder();
+            refresh_point_layer();
+        }, 1000);
     });
 
     function subsc_device_orientation() {

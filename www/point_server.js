@@ -1,3 +1,5 @@
+var m_SQL = null;
+
 function empty_gps_point() {
     return {
         'id': "", // x000y000z000_timestamp
@@ -35,6 +37,34 @@ class LocalStoragePointHanlder extends IPointHanlder {
     constructor() {
         super();
         this.LSKEY_ID_LIST = "pgis_point_id_list";
+
+        if(!m_SQL){
+            var base_path = (function() {
+                try{
+                    var path = document.currentScript.src.split('?')[0];
+                    var mydir = path.split('/').slice(0, -1).join('/') + '/';
+                    if(mydir.startsWith('file://')){
+                        mydir = mydir.substr('file://'.length);
+                    }
+                    return mydir;
+                }catch(e){
+                    return '';
+                }
+            })();
+            const config = {
+              locateFile: filename => base_path + `./lib/sql-js/${filename}`
+            }
+            initSqlJs(config).then((SQL) => {
+                m_SQL = SQL;
+                this.init(m_SQL);
+            });
+        }else{
+            this.init(m_SQL);
+        }
+    }
+    init(SQL){
+        this.db = new SQL.Database();
+        this.db.run("CREATE TABLE points (id, file, gps, compass, x, y, z, accuracy, altitudeAccuracy, timestamp, datetime);");
     }
     get_point_id_list() {
         var json = localStorage.getItem(this.LSKEY_ID_LIST);
