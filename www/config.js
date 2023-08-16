@@ -1,4 +1,7 @@
 var pgis_conf = {
+	"plugin_paths" : [
+		"plugins/camera/camera.js"
+	],
     "camera_conn": "bluetooth",
     "camera_option_name": "ble_insta360x3",
     "camera_options": {

@@ -15,9 +15,11 @@
   <script type="text/javascript" src="lib/leaflet/leaflet.js"></script>
   <script type="text/javascript" src="lib/leaflet-locatecontrol/L.Control.Locate.min.js"></script>
   <script type="text/javascript" src="lib/sql-js/sql-wasm.js"></script>
+  <script type="text/javascript" src="lib/jquery/jquery-3.6.0.min.js"></script>
   <script type="text/javascript" src="config.js" charset="utf-8"></script>
   <script type="text/javascript" src="tools.js" charset="utf-8"></script>
   <script type="text/javascript" src="point_server.js" charset="utf-8"></script>
+  <script type="text/javascript" src="plugin_host.js" charset="utf-8"></script>
   <script type="text/javascript" src="index.js" charset="utf-8"></script>
 </head>
 
@@ -34,68 +36,28 @@
           <!-- <ons-button onclick="stop()" modifier="large" tappable>停止</ons-button> -->
       </ons-page>
     </ons-splitter-side>
-    <ons-splitter-content>
-      <ons-navigator swipeable id="content" page="home.html"></ons-navigator>
-    </ons-splitter-content>
+    <ons-splitter-content id="content" page="empty.html" />
   </ons-splitter>
 
-  <template id="home.html">
-    <ons-page id="home">
-      <ons-toolbar>
-        <div class="right">
-          <ons-toolbar-button onclick="fn.open()">
-            <ons-icon icon="md-menu"></ons-icon>
-          </ons-toolbar-button>
-        </div>
-        <div class="center">
-          PGIS
-        </div>
-      </ons-toolbar>
-
-      <div class="container">
-        <!-- map  -->
-        <div id="info">Click on the map to see the coordinates here.</div>
-        <div id="mapid"></div>
-
-        <!-- actions -->
-        <label for="button-container">actions:</label>
-        <div class="button-container">
-          <!-- <button onclick="showStatus()">status</button> -->
-          <button onclick="pgis.take_picture()">Take picture (gps)</button>
-          <button onclick="pgis.save_current_pos()">Add current pos</button>
-          <button onclick="pgis.remove_pos()">Remove selected pos</button>
-          <button onclick="pgis.clear_pos()">Clear pos</button>
-          <button onclick="pgis.download_points()">Download points</button>
-          <button onclick="pgis.load_points()">Load points</button>
-        </div>
-
-        <!-- result display -->
-        <textarea cols="80" rows="10" id="textDisplay"></textarea>
-
-        <!-- gps info -->
-        <ul>
-          <input type="button" id="permit" value="SafariでDeviceOrientationを許可" />
-          <li>【compass】<span id="direction"></span></li>
-          <li>【absolute】<span id="absolute"></span></li>
-          <li>【alpha】<span id="alpha"></span></li>
-          <li>【beta】<span id="beta"></span></li>
-          <li>【gamma】<span id="gamma"></span></li>
-
-          <li>latitude: <span id="latitude"></span></li>
-          <li>longitude: <span id="longitude"></span></li>
-          <li>altitude: <span id="altitude"></span></li>
-          <li>accuracy: <span id="accuracy"></span></li>
-          <li>altitudeAccuracy: <span id="altitudeAccuracy"></span></li>
-          <li>heading: <span id="heading"></span></li>
-          <li>speed: <span id="speed"></span></li>
-          <li>datetime: <span id="datetime"></span></li>
-        </ul>
-
-        <!-- misc -->
-        <input type="file" id="file-input" accept=".json" style="display: none;" />
-      </div>
-    </ons-page>
-  </template>
+	<ons-template id="empty.html">
+    <ons-navigator
+      animation="slide"
+      var="app.navi">
+      <ons-page>
+        <ons-toolbar>
+          <div class="left">
+            <ons-back-button id="btnBack">Back</ons-back-button>
+          </div>
+          <div class="center" style="-webkit-app-region: drag">PViewer</div>
+          <div class="right">
+            <ons-toolbar-button ng-click="app.menu.toggleMenu()">
+              <ons-icon icon="ion-navicon" style="font-size: 32px; width: 1em;"></ons-icon>
+            </ons-toolbar-button>
+          </div>
+        </ons-toolbar> 
+      </ons-page>
+    </ons-navigator>
+	</ons-template>
 </body>
 
 </html>

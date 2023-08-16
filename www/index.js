@@ -775,10 +775,15 @@ var pgis = (() => {
     }
 
     var self = {
+		debug: 0,
+		plugin_host: null,
+        
         init: (options) => {
             m_options = options;
             console.log("loading config...");
             console.log(m_options);
+            self.plugin_host = PluginHost(self, m_options);
+            return self.plugin_host.init_plugins();
         },
 
         take_picture: () => {
