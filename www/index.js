@@ -25,10 +25,10 @@ var pgis = (() => {
     window.fn.close = function () {
         closeMenu();
     };
-    window.fn.load = function (page) {
+    window.fn.load = function (page, callback) {
         var content = document.getElementById('content');
         var menu = document.getElementById('menu');
-        content.load(page)
+        content.load(page, { callback })
             .then(menu.close.bind(menu));
     };
 
@@ -777,7 +777,7 @@ var pgis = (() => {
     var self = {
 		debug: 0,
 		plugin_host: null,
-        
+
         init: (options) => {
             m_options = options;
             console.log("loading config...");

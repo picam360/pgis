@@ -9,10 +9,9 @@ var create_plugin = (function() {
 			var txt = (new TextDecoder).decode(chunk_array[0]);
 			var node = $.parseHTML(txt);
 			$('body').append(node);
-			fn.load('camera.html', {
-				callback : function() {		
-					console.log('camera.html loaded');
-				}});
+			fn.load('camera.html', () => {		
+				console.log('camera.html loaded');
+			});
 		});
 		
 		var plugin = {
