@@ -2,6 +2,7 @@ var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
     var m_camera = null;
+	var m_filepath = "";
 
     function display_text(text) {
         let e = document.getElementById("textDisplay");
@@ -443,19 +444,17 @@ var create_plugin = (function() {
 				m_options = options;
 				pgis.take_picture = plugin.take_picture;
 				pgis.get_point_handler().add_create_table_callback((columns) => {
-					columns['file'] = "TEXT";
+					columns['filepath'] = "TEXT";
 				});
 				pgis.get_point_handler().add_insert_callback((columns) => {
-					columns['file'] = "dummy";
+					columns['filepath'] = m_filepath;
+					m_filepath = "";
 				});
 			},
 			event_handler : function(sender, event) {
 			},
 			take_picture: () => {
 				try {
-					// keep pos.
-					var cur_pos = convert_gpsinfo_to_gpspoint(m_last_gps_info);
-	
 					// create camera
 					prepare_camera();
 	
@@ -467,7 +466,7 @@ var create_plugin = (function() {
 								if (res.status === 'ok') {
 									let a = res.body.file_name.split('/');
 									let fname = a[a.length - 1];
-									cur_pos.file = fname;
+									m_filepath = fname;
 									m_point_handler.set_point(cur_pos);
 									refresh_point_layer();
 									display_text(`file: ${fname}`);

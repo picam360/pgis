@@ -149,7 +149,6 @@ var pgis = (() => {
             h['heading'] = pos.coords.heading;
             h['speed'] = pos.coords.speed;
             h['timestamp'] = pos.timestamp;
-            h['datetime'] = (new Date(pos.timestamp)).toLocaleString();
             m_last_gps_info = h;
 
             // if(m_ol_map){
@@ -174,18 +173,16 @@ var pgis = (() => {
         // h['heading'] = pos.coords.heading;
         // h['speed'] = pos.coords.speed;
         // h['timestamp'] = pos.timestamp;
-        // h['datetime'] = (new Date(pos.timestamp)).toLocaleString();
 
         let inf = pgs_info;
         let p = empty_gps_point();
-        p.compass = inf.degrees;
-        p.x = inf.longitude;
-        p.y = inf.latitude;
-        p.z = inf.altitude;
-        p.accuracy = inf.accuracy;
-        p.altitudeAccuracy = inf.altitudeAccuracy;
-        p.timestamp = inf.timestamp;
-        p.datetime = inf.datetime;
+        p.compass = inf.degrees || 0;
+        p.x = inf.longitude || 0;
+        p.y = inf.latitude || 0;
+        p.z = inf.altitude || 0;
+        p.accuracy = inf.accuracy || 0;
+        p.altitudeAccuracy = inf.altitudeAccuracy || 0;
+        p.timestamp = inf.timestamp || 0;
         return p;
     }
 
@@ -207,7 +204,11 @@ var pgis = (() => {
         document.querySelector("#altitudeAccuracy").innerHTML = data['altitudeAccuracy'] ?? "-";
         document.querySelector("#heading").innerHTML = data['heading'] ?? "-";
         document.querySelector("#speed").innerHTML = data['speed'] ?? "-";
-        document.querySelector("#datetime").innerHTML = data['datetime'] ?? "-";
+        if(data['timestamp']){
+            document.querySelector("#datetime").innerHTML = (new Date(data['timestamp'])).toLocaleString();
+        }else{
+            document.querySelector("#datetime").innerHTML = "-";
+        }
     }
 
     function lowpass_ort_data() {
