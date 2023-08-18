@@ -3,7 +3,6 @@ var m_SQL = null;
 function empty_gps_point() {
     return {
         'id': "", // x000y000z000_timestamp
-        'file': "",// image file name
         'gps': "",// x000y000z000
         'compass': "",// direction deg. N is 0. CCW is pos.
         'x': "",// lon
@@ -27,7 +26,6 @@ class IPointHanlder {
         }
     }
     get_point_id_list() { throw new Error('not implemented'); }
-    _set_point_id_list(list) { throw new Error('not implemented'); }
     get_point(gp_id){ throw new Error('not implemented'); }
     set_point(gp) { throw new Error('not implemented'); }
     delete_point(gp_id) { throw new Error('not implemented'); }
@@ -36,7 +34,35 @@ class IPointHanlder {
 class LocalStoragePointHanlder extends IPointHanlder {
     constructor() {
         super();
+        this.LSKEY_SQL_FILEPATH = "pgis_point_handler.sql";
         this.LSKEY_ID_LIST = "pgis_point_id_list";
+        this.create_table_callbacks = [];
+        this.insert_callbacks = [];
+        this.update_callbacks = [];
+        this.delete_callbacks = [];
+        this.file_api = {
+            read_all_lines: (filepath) => {
+                var sql = localStorage.getItem(filepath);
+                if(!sql){
+                    return [];
+                }else{
+                    return sql.split(/\r\n|\n/);
+                }
+            },
+            append_all_lines: (filepath, lines) => {
+                if(!lines || lines.length == 0){
+                    return;
+                }
+                var sql = localStorage.getItem(filepath);
+                if(!sql){
+                    sql = "";
+                }else{
+                    sql += '\n';
+                }
+                sql += lines.join('\n');
+                localStorage.setItem(filepath, sql);
+            },
+        };
 
         if(!m_SQL){
             var base_path = (function() {
@@ -56,52 +82,156 @@ class LocalStoragePointHanlder extends IPointHanlder {
             }
             initSqlJs(config).then((SQL) => {
                 m_SQL = SQL;
-                this.init(m_SQL);
             });
-        }else{
-            this.init(m_SQL);
         }
     }
-    init(SQL){
-        this.db = new SQL.Database();
-        this.db.run("CREATE TABLE points (id, file, gps, compass, x, y, z, accuracy, altitudeAccuracy, timestamp, datetime);");
+    init(callback){
+        if(!m_SQL){
+            setTimeout(() => {
+                this.init(callback);
+            }, 100);
+            return;
+        }
+        //sqlite columns type:[NULL,INTEGER,REAL,TEXT,BLOB]
+        var columns = {
+            id: "TEXT",
+            gps: "TEXT",
+            compass: "TEXT",
+            x: "TEXT",
+            y: "TEXT",
+            z: "TEXT",
+            accuracy: "TEXT",
+            altitudeAccuracy: "TEXT",
+            timestamp: "TEXT",
+            datetime: "TEXT",
+        };
+        for(var create_table_callback of this.create_table_callbacks){
+            create_table_callback(columns);
+        }
+        var names = "";
+        for(var name in columns){
+            var type = null;
+            if(!columns[name]){
+                //pass through
+            }else if(typeof columns[name] === 'object'){
+                type = columns[name].type;
+            }else{
+                type = columns[name];
+            }
+            if(type){
+                names += `,${name} ${type}`;
+            }else{
+                names += `,${name}`;
+            }
+        }
+        names = names.slice(1);
+        var sql = `create table points(${names});`;
+        this.db = new m_SQL.Database();
+        this.db.run(sql);
+        
+        var lines = this.file_api.read_all_lines(this.LSKEY_SQL_FILEPATH);
+        for(var line of lines){
+            if(line[0] == '#'){
+                continue;
+            }
+            this.db.run(line);
+        }
+
+        if(callback){
+            callback();
+        }
+    }
+    add_create_table_callback(callback){
+        this.create_table_callbacks.push(callback);
+    }
+    add_insert_callback(callback){
+        this.insert_callbacks.push(callback);
+    }
+    add_update_callback(callback){
+        this.update_callbacks.push(callback);
+    }
+    add_delete_callback(callback){
+        this.delete_callbacks.push(callback);
+    }
+    _to_obj_ary(res) {
+        if(!res || !res.values){
+            return [];
+        }
+        var ary = [];
+        for(var i=0;i<res.values.length;i++){
+            ary[i] = {};
+            for(var j=0;j<res.columns.length;j++){
+                ary[i][res.columns[j]] = res.values[i][j];
+            }
+        }
+        return ary;
     }
     get_point_id_list() {
-        var json = localStorage.getItem(this.LSKEY_ID_LIST);
-        if (json) {
-            return JSON.parse(json);
-        }
-        return [];
+        var sql = `select * from points;`;
+        var res = this.db.exec(sql);
+        var ary = this._to_obj_ary(res[0]);
+        return ary;
     }
-    _set_point_id_list(list) { 
-        var json = JSON.stringify(list);
-        localStorage.setItem(this.LSKEY_ID_LIST, json);
-    }
-    get_point(gp_id){ 
-        var json = localStorage.getItem(gp_id);
-        if (json) {
-            return JSON.parse(json);
+    get_point(gp_id){
+        var sql = `select * from points where id="${gp_id}";`;
+        var res = this.db.exec(sql);
+        var ary = this._to_obj_ary(res[0]);
+        if(ary.length == 0){
+            return null;
+        }else{
+            return ary[0];
         }
-        return null;
     }
     set_point(gp) {
-        // add to id list.
-        gp.id = generate_gps_point_id(gp);
-        var json = JSON.stringify(gp);
-        localStorage.setItem(gp.id, json);
-
-        // save point.
-        let list = this.get_point_id_list();
-        list.push(gp.id);
-        this._set_point_id_list(list);
+        //sql
+        var columns = {
+            id: gp.id,
+            gps: gp.gps,
+            compass: gp.compass,
+            x: gp.x,
+            y: gp.y,
+            z: gp.z,
+            accuracy: gp.accuracy,
+            altitudeAccuracy: gp.altitudeAccuracy,
+            timestamp: gp.timestamp,
+            datetime: gp.datetime,
+        };
+        for(var insert_callback of this.insert_callbacks){
+            insert_callback(columns);
+        }
+        var names = "";
+        var values = "";
+        for(var name in columns){
+            var value = null;
+            if(!columns[name]){
+                //pass through
+            }else if(typeof columns[name] === 'object'){
+                value = columns[name].value;
+            }else{
+                value = columns[name];
+            }
+            if(value){
+                names += `,${name}`;
+                if(typeof (value) === "string" || value instanceof String){
+                    values += `,"${value}"`;
+                }else{
+                    values += `,${value}`;
+                }
+            }
+        }
+        names = names.slice(1);
+        values = values.slice(1);
+        var sql = `insert into points(${names}) values(${values});`;
+        this.db.run(sql);
+        this.file_api.append_all_lines(this.LSKEY_SQL_FILEPATH, [sql]);
     }
     delete_point(gp_id){
-        // remove from id list.
-        let list = this.get_point_id_list();
-        const filtered_lsit = list.filter(item => item !== gp_id);
-        this._set_point_id_list(filtered_lsit);
-
-        // remove point.
-        localStorage.removeItem(gp_id);
+        //sql
+        for(var delete_callback of this.delete_callbacks){
+            delete_callback(gp_id);
+        }
+        var sql = `delete from points where id="${gp_id}";`;
+        this.db.run(sql);
+        this.file_api.append_all_lines(this.LSKEY_SQL_FILEPATH, [sql]);
     }
 }

@@ -442,6 +442,12 @@ var create_plugin = (function() {
 			init_options : function(options) {
 				m_options = options;
 				pgis.take_picture = plugin.take_picture;
+				pgis.get_point_handler().add_create_table_callback((columns) => {
+					columns['file'] = "TEXT";
+				});
+				pgis.get_point_handler().add_insert_callback((columns) => {
+					columns['file'] = "dummy";
+				});
 			},
 			event_handler : function(sender, event) {
 			},

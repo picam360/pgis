@@ -77,8 +77,11 @@ var pgis = (() => {
 
             m_map_marker_layer = L.layerGroup().addTo(map);
 
-            m_point_handler = new LocalStoragePointHanlder();
-            refresh_point_layer();
+            //create table & restore rows
+            m_point_handler.init(() => {
+                refresh_point_layer();
+            });
+
         }, 1000);
     });
 
@@ -359,6 +362,8 @@ var pgis = (() => {
             m_options = options;
             console.log("loading config...");
             console.log(m_options);
+
+            m_point_handler = new LocalStoragePointHanlder();
             self.plugin_host = PluginHost(self, m_options);
             return self.plugin_host.init_plugins();
         },
@@ -424,7 +429,8 @@ var pgis = (() => {
                 });
             }
             m_e_fileinput.click();
-        }
+        },
+        get_point_handler: () => { return m_point_handler; },
     }
     return self;
 })();
