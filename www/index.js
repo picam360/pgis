@@ -178,7 +178,6 @@ var pgis = (() => {
 
         let inf = pgs_info;
         let p = empty_gps_point();
-        p.gps = `x${inf.longitude}y${inf.latitude}z${inf.altitude}`;
         p.compass = inf.degrees;
         p.x = inf.longitude;
         p.y = inf.latitude;
@@ -325,32 +324,29 @@ var pgis = (() => {
         m_map_marker_layer.clearLayers();
         m_map_markers = {};
         m_map_selected_marker = null;
-        var point_ids = m_point_handler.get_point_id_list();
-        point_ids.forEach((id) => {
-            let p = m_point_handler.get_point(id);
-            if (p) {
-                let marker = L.marker([p.y, p.x]).addTo(m_map_marker_layer);
-                m_map_markers[marker._leaflet_id] = p;
+        var points = m_point_handler.get_points();
+        points.forEach((p) => {
+            let marker = L.marker([p.y, p.x]).addTo(m_map_marker_layer);
+            m_map_markers[marker._leaflet_id] = p;
+            if (!m_default_marker_size) {
+                let icon = marker.options.icon;
+                m_default_marker_size = [icon.options.iconSize[0], icon.options.iconSize[1]];
+            }
+            set_scale_marker(marker, 1.0);
+
+            marker.on('click', function () {
+                let prev = m_map_selected_marker;
+                m_map_selected_marker = marker;
+
                 if (!m_default_marker_size) {
                     let icon = marker.options.icon;
                     m_default_marker_size = [icon.options.iconSize[0], icon.options.iconSize[1]];
                 }
-                set_scale_marker(marker, 1.0);
-
-                marker.on('click', function () {
-                    let prev = m_map_selected_marker;
-                    m_map_selected_marker = marker;
-
-                    if (!m_default_marker_size) {
-                        let icon = marker.options.icon;
-                        m_default_marker_size = [icon.options.iconSize[0], icon.options.iconSize[1]];
-                    }
-                    if (prev) {
-                        set_scale_marker(prev, 1.0);
-                    }
-                    set_scale_marker(m_map_selected_marker, 1.3);
-                });
-            }
+                if (prev) {
+                    set_scale_marker(prev, 1.0);
+                }
+                set_scale_marker(m_map_selected_marker, 1.3);
+            });
         });
     }
 
@@ -363,7 +359,7 @@ var pgis = (() => {
             console.log("loading config...");
             console.log(m_options);
 
-            m_point_handler = new LocalStoragePointHanlder();
+            m_point_handler = new PointHanlder();
             self.plugin_host = PluginHost(self, m_options);
             return self.plugin_host.init_plugins();
         },
@@ -385,25 +381,15 @@ var pgis = (() => {
             }
         },
         clear_pos: () => {
-            var point_ids = m_point_handler.get_point_id_list();
-            point_ids.forEach((id) => {
-                let p = m_point_handler.get_point(id);
-                if (p) {
-                    m_point_handler.delete_point(p.id);
-                }
+            var points = m_point_handler.get_points();
+            points.forEach((p) => {
+                m_point_handler.delete_point(p.id);
             });
             refresh_point_layer();
         },
         download_points: () => {
-            let point_ids = m_point_handler.get_point_id_list();
-            let array = [];
-            point_ids.forEach(id => {
-                var p = m_point_handler.get_point(id);
-                if (p) {
-                    array.push(p);
-                }
-            });
-            download_json_file(array);
+            let points = m_point_handler.get_points();
+            download_json_file(points);
         },
         load_points: () => {
             if (!m_e_fileinput) {

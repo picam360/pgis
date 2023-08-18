@@ -2,8 +2,7 @@ var m_SQL = null;
 
 function empty_gps_point() {
     return {
-        'id': "", // x000y000z000_timestamp
-        'gps': "",// x000y000z000
+        'id': 0, // integer
         'compass': "",// direction deg. N is 0. CCW is pos.
         'x': "",// lon
         'y': "",// lat
@@ -11,12 +10,7 @@ function empty_gps_point() {
         'accuracy': "",// meter for accuracy circle
         'altitudeAccuracy': "",
         'timestamp': "",
-        'datetime': ""// record date
     };
-}
-
-function generate_gps_point_id(gp) {
-    return `${gp.gps}_${gp.timestamp}`;
 }
 
 class IPointHanlder {
@@ -31,7 +25,7 @@ class IPointHanlder {
     delete_point(gp_id) { throw new Error('not implemented'); }
 }
 
-class LocalStoragePointHanlder extends IPointHanlder {
+class PointHanlder extends IPointHanlder {
     constructor() {
         super();
         this.LSKEY_SQL_FILEPATH = "pgis_point_handler.sql";
@@ -94,16 +88,14 @@ class LocalStoragePointHanlder extends IPointHanlder {
         }
         //sqlite columns type:[NULL,INTEGER,REAL,TEXT,BLOB]
         var columns = {
-            id: "TEXT",
-            gps: "TEXT",
-            compass: "TEXT",
-            x: "TEXT",
-            y: "TEXT",
-            z: "TEXT",
-            accuracy: "TEXT",
-            altitudeAccuracy: "TEXT",
+            id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+            compass: "REAL",
+            x: "REAL",
+            y: "REAL",
+            z: "REAL",
+            accuracy: "REAL",
+            altitudeAccuracy: "REAL",
             timestamp: "TEXT",
-            datetime: "TEXT",
         };
         for(var create_table_callback of this.create_table_callbacks){
             create_table_callback(columns);
@@ -166,7 +158,7 @@ class LocalStoragePointHanlder extends IPointHanlder {
         }
         return ary;
     }
-    get_point_id_list() {
+    get_points() {
         var sql = `select * from points;`;
         var res = this.db.exec(sql);
         var ary = this._to_obj_ary(res[0]);
@@ -185,8 +177,6 @@ class LocalStoragePointHanlder extends IPointHanlder {
     set_point(gp) {
         //sql
         var columns = {
-            id: gp.id,
-            gps: gp.gps,
             compass: gp.compass,
             x: gp.x,
             y: gp.y,
@@ -194,7 +184,6 @@ class LocalStoragePointHanlder extends IPointHanlder {
             accuracy: gp.accuracy,
             altitudeAccuracy: gp.altitudeAccuracy,
             timestamp: gp.timestamp,
-            datetime: gp.datetime,
         };
         for(var insert_callback of this.insert_callbacks){
             insert_callback(columns);
