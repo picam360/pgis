@@ -35,12 +35,15 @@ class PointHanlder extends IPointHanlder {
         this.update_callbacks = [];
         this.delete_callbacks = [];
         this.file_api = {
-            read_all_lines: (filepath) => {
+            read_all_lines: (filepath, callback) => {
+                if(!callback){
+                    return;
+                }
                 var sql = localStorage.getItem(filepath);
                 if(!sql){
-                    return [];
+                    callback([]);
                 }else{
-                    return sql.split(/\r\n|\n/);
+                    callback(sql.split(/\r\n|\n/));
                 }
             },
             append_all_lines: (filepath, lines) => {
@@ -121,17 +124,18 @@ class PointHanlder extends IPointHanlder {
         this.db = new m_SQL.Database();
         this.db.run(sql);
         
-        var lines = this.file_api.read_all_lines(this.LSKEY_SQL_FILEPATH);
-        for(var line of lines){
-            if(line[0] == '#'){
-                continue;
+        this.file_api.read_all_lines(this.LSKEY_SQL_FILEPATH, (lines) => {
+            for(var line of lines){
+                if(line[0] == '#'){
+                    continue;
+                }
+                this.db.run(line);
             }
-            this.db.run(line);
-        }
-
-        if(callback){
-            callback();
-        }
+    
+            if(callback){
+                callback();
+            }
+        });
     }
     add_create_table_callback(callback){
         this.create_table_callbacks.push(callback);
