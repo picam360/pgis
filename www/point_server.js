@@ -145,6 +145,9 @@ class PointHanlder extends IPointHanlder {
     add_delete_callback(callback){
         this.delete_callbacks.push(callback);
     }
+    set_file_api(file_api){
+        this.file_api = file_api;
+    }
     _to_obj_ary(res) {
         if(!res || !res.values){
             return [];
