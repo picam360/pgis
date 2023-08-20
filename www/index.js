@@ -13,6 +13,8 @@ var pgis = (() => {
     var m_map_selected_marker = null;
     var m_default_marker_size = null;
     var m_e_fileinput = null;
+    var m_is_DOMContentLoaded = false;
+    var m_is_deviceready = false;
 
     /**
      * onsen ui
@@ -39,50 +41,55 @@ var pgis = (() => {
         var menu = document.getElementById('menu');
         menu.open();
     }
+    function init_map() {
+        subsc_device_orientation();
+        setInterval(show_gps_info, 33);
+        navigator.geolocation.watchPosition(update_pos_data);
+        navigator.geolocation.getCurrentPosition((position) => {
+            console.log("current location", position.coords.latitude, position.coords.longitude);
+            m_map.setView([position.coords.latitude, position.coords.longitude], 18);
+        });
 
-    window.addEventListener("DOMContentLoaded", () => {
-        setTimeout(() => {
-            subsc_device_orientation();
-            setInterval(show_gps_info, 33);
-            navigator.geolocation.watchPosition(update_pos_data);
-            navigator.geolocation.getCurrentPosition((position) => {
-                console.log("current location", position.coords.latitude, position.coords.longitude);
-                m_map.setView([position.coords.latitude, position.coords.longitude], 18);
-            });
+        var map =
+            L.map('mapid', { attributionControl: true })
+                .setView([35.636, 139.719], 18);
+        m_map = map;
 
-            var map =
-                L.map('mapid', { attributionControl: true })
-                    .setView([35.636, 139.719], 18);
-            m_map = map;
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+            maxZoom: 24,
+        }).addTo(map);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-                maxZoom: 24,
-            }).addTo(map);
+        lc = L.control
+            .locate({
+                strings: {
+                    title: "Show me where I am, yo!"
+                }
+            })
+            .addTo(map);
 
-            lc = L.control
-                .locate({
-                    strings: {
-                        title: "Show me where I am, yo!"
-                    }
-                })
-                .addTo(map);
+        map.on('click', function (e) {
+            var coord = e.latlng;
+            // Update info div
+            document.getElementById('info').innerHTML =
+                `x${coord.lng}y${coord.lat}z${0}`;
+        });
 
-            map.on('click', function (e) {
-                var coord = e.latlng;
-                // Update info div
-                document.getElementById('info').innerHTML =
-                    `x${coord.lng}y${coord.lat}z${0}`;
-            });
+        m_map_marker_layer = L.layerGroup().addTo(map);
 
-            m_map_marker_layer = L.layerGroup().addTo(map);
+        //create table & restore rows
+        m_point_handler.init(() => {
+            refresh_point_layer();
+        });
+    }
 
-            //create table & restore rows
-            m_point_handler.init(() => {
-                refresh_point_layer();
-            });
 
-        }, 1000);
+    document.addEventListener('deviceready', () => {
+        m_is_deviceready = true;
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        m_is_DOMContentLoaded = true;
     });
 
     function subsc_device_orientation() {
@@ -362,7 +369,22 @@ var pgis = (() => {
 
             m_point_handler = new PointHanlder();
             self.plugin_host = PluginHost(self, m_options);
-            return self.plugin_host.init_plugins();
+            var timer = setInterval(() => {
+                if(window.cordova){
+                    if(!m_is_deviceready){
+                        return;
+                    }
+                }
+                if(!m_is_DOMContentLoaded){
+                    return;
+                }
+                clearInterval(timer);
+                self.plugin_host.init_plugins().then(() => {
+                    setTimeout(() => {
+                        init_map();
+                    }, 1000);
+                });
+            }, 100);
         },
 
         add_current_pos: () => {
