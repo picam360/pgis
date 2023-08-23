@@ -44,45 +44,33 @@ var pgis = (() => {
     function init_map() {
         subsc_device_orientation();
         setInterval(show_gps_info, 33);
+
         navigator.geolocation.watchPosition(update_pos_data);
+
         navigator.geolocation.getCurrentPosition((position) => {
             console.log("current location", position.coords.latitude, position.coords.longitude);
-            m_map.setView([position.coords.latitude, position.coords.longitude], 18);
+            var userLocation = ol.proj.fromLonLat([position.coords.longitude, position.coords.latitude]);
+            m_map.getView().animate({
+                center: userLocation,
+                zoom: 20
+            });
+
         });
 
-        var map =
-            L.map('mapid', { attributionControl: true })
-                .setView([35.636, 139.719], 18);
-        m_map = map;
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-            maxZoom: 24,
-        }).addTo(map);
-
-        lc = L.control
-            .locate({
-                strings: {
-                    title: "Show me where I am, yo!"
-                }
+        var map = new ol.Map({
+            target: 'mapid',
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                })
+            ],
+            view: new ol.View({
+                center: ol.proj.fromLonLat([0, 0]),
+                zoom: 2
             })
-            .addTo(map);
-
-        map.on('click', function (e) {
-            var coord = e.latlng;
-            // Update info div
-            document.getElementById('info').innerHTML =
-                `x${coord.lng}y${coord.lat}z${0}`;
         });
-
-        m_map_marker_layer = L.layerGroup().addTo(map);
-
-        //create table & restore rows
-        m_point_handler.init(() => {
-            refresh_point_layer();
-        });
+        m_map = map;
     }
-
 
     document.addEventListener('deviceready', () => {
         m_is_deviceready = true;
@@ -198,24 +186,24 @@ var pgis = (() => {
             return;
         }
         let data = m_last_gps_info;
-        document.querySelector("#direction").innerHTML = data['direction'] + " : " + data['degrees'];
-        document.querySelector("#absolute").innerHTML = data['absolute'] ?? "-";
-        document.querySelector("#alpha").innerHTML = data['alpha'] ?? "-";
-        document.querySelector("#beta").innerHTML = data['beta'] ?? "-";
-        document.querySelector("#gamma").innerHTML = data['gamma'] ?? "-";
+        // document.querySelector("#direction").innerHTML = data['direction'] + " : " + data['degrees'];
+        // document.querySelector("#absolute").innerHTML = data['absolute'] ?? "-";
+        // document.querySelector("#alpha").innerHTML = data['alpha'] ?? "-";
+        // document.querySelector("#beta").innerHTML = data['beta'] ?? "-";
+        // document.querySelector("#gamma").innerHTML = data['gamma'] ?? "-";
 
-        document.querySelector("#latitude").innerHTML = data['latitude'] ?? "-";
-        document.querySelector("#longitude").innerHTML = data['longitude'] ?? "-";
-        document.querySelector("#altitude").innerHTML = data['altitude'] ?? "-";
-        document.querySelector("#accuracy").innerHTML = data['accuracy'] ?? "-";
-        document.querySelector("#altitudeAccuracy").innerHTML = data['altitudeAccuracy'] ?? "-";
-        document.querySelector("#heading").innerHTML = data['heading'] ?? "-";
-        document.querySelector("#speed").innerHTML = data['speed'] ?? "-";
-        if(data['timestamp']){
-            document.querySelector("#datetime").innerHTML = (new Date(data['timestamp'])).toLocaleString();
-        }else{
-            document.querySelector("#datetime").innerHTML = "-";
-        }
+        // document.querySelector("#latitude").innerHTML = data['latitude'] ?? "-";
+        // document.querySelector("#longitude").innerHTML = data['longitude'] ?? "-";
+        // document.querySelector("#altitude").innerHTML = data['altitude'] ?? "-";
+        // document.querySelector("#accuracy").innerHTML = data['accuracy'] ?? "-";
+        // document.querySelector("#altitudeAccuracy").innerHTML = data['altitudeAccuracy'] ?? "-";
+        // document.querySelector("#heading").innerHTML = data['heading'] ?? "-";
+        // document.querySelector("#speed").innerHTML = data['speed'] ?? "-";
+        // if(data['timestamp']){
+        //     document.querySelector("#datetime").innerHTML = (new Date(data['timestamp'])).toLocaleString();
+        // }else{
+        //     document.querySelector("#datetime").innerHTML = "-";
+        // }
     }
 
     function lowpass_ort_data() {
@@ -359,8 +347,9 @@ var pgis = (() => {
     }
 
     var self = {
-		debug: 0,
-		plugin_host: null,
+        debug: 0,
+        plugin_host: null,
+        map: () => { return m_map; },
 
         init: (options) => {
             m_options = options;
@@ -370,18 +359,19 @@ var pgis = (() => {
             m_point_handler = new PointHanlder();
             self.plugin_host = PluginHost(self, m_options);
             var timer = setInterval(() => {
-                if(window.cordova){
-                    if(!m_is_deviceready){
+                if (window.cordova) {
+                    if (!m_is_deviceready) {
                         return;
                     }
                 }
-                if(!m_is_DOMContentLoaded){
+                if (!m_is_DOMContentLoaded) {
                     return;
                 }
                 clearInterval(timer);
                 self.plugin_host.init_plugins().then(() => {
                     setTimeout(() => {
                         init_map();
+                        pgis.plugin_host.send_event(self, "loaded");
                     }, 1000);
                 });
             }, 100);
