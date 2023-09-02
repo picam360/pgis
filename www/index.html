@@ -19,6 +19,7 @@
   <script type="text/javascript" src="lib/ol_v6.4.3/ol.js"></script>
   <script type="text/javascript" src="lib/sql-js/sql-wasm.js"></script>
   <script type="text/javascript" src="lib/jquery/jquery-3.6.0.min.js"></script>
+  <script type="text/javascript" src="lib/pako/pako.min.js"></script>
   <script type="text/javascript" src="config.js" charset="utf-8"></script>
   <script type="text/javascript" src="tools.js" charset="utf-8"></script>
   <script type="text/javascript" src="point_server.js" charset="utf-8"></script>
@@ -27,40 +28,40 @@
 </head>
 
 <body>
-  <h2>pgis</h2>
+<h2>pgis</h2>
 
-  <ons-splitter>
-    <ons-splitter-side id="menu" side="right" width="220px" collapse>
-      <ons-page>
-        <ons-list>
-          <ons-list-item onclick="fn.close()" class="" tappable>
-            <ons-icon icon="ion-ios-close"> 閉じる</ons-icon>
-          </ons-list-item>
-          <!-- <ons-button onclick="stop()" modifier="large" tappable>停止</ons-button> -->
-      </ons-page>
-    </ons-splitter-side>
-    <ons-splitter-content id="content" page="empty.html" />
-  </ons-splitter>
+<ons-splitter>
+  <ons-splitter-side id="menu" side="right" width="220px" collapse>
+    <ons-page>
+      <ons-list>
+        <ons-list-item onclick="fn.close()" class="" tappable>
+          <ons-icon icon="ion-ios-close"> 閉じる</ons-icon>
+        </ons-list-item>
+        <!-- <ons-button onclick="stop()" modifier="large" tappable>停止</ons-button> -->
+    </ons-page>
+  </ons-splitter-side>
+  <ons-splitter-content id="content" page="empty.html" />
+</ons-splitter>
 
-	<ons-template id="empty.html">
-    <ons-navigator
-      animation="slide"
-      var="app.navi">
-      <ons-page>
-        <ons-toolbar>
-          <div class="left">
-            <ons-back-button id="btnBack">Back</ons-back-button>
-          </div>
-          <div class="center" style="-webkit-app-region: drag">PViewer</div>
-          <div class="right">
-            <ons-toolbar-button ng-click="app.menu.toggleMenu()">
-              <ons-icon icon="ion-navicon" style="font-size: 32px; width: 1em;"></ons-icon>
-            </ons-toolbar-button>
-          </div>
-        </ons-toolbar> 
-      </ons-page>
-    </ons-navigator>
-	</ons-template>
+<ons-template id="empty.html">
+  <ons-navigator
+          animation="slide"
+          var="app.navi">
+    <ons-page>
+      <ons-toolbar>
+        <div class="left">
+          <ons-back-button id="btnBack">Back</ons-back-button>
+        </div>
+        <div class="center" style="-webkit-app-region: drag">PViewer</div>
+        <div class="right">
+          <ons-toolbar-button ng-click="app.menu.toggleMenu()">
+            <ons-icon icon="ion-navicon" style="font-size: 32px; width: 1em;"></ons-icon>
+          </ons-toolbar-button>
+        </div>
+      </ons-toolbar>
+    </ons-page>
+  </ons-navigator>
+</ons-template>
 </body>
 
 </html>

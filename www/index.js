@@ -14,6 +14,9 @@ var pgis = (() => {
         set_tile_layer: (layer) => {
             m_map_handler._tile_layer = layer;
         },
+        get_map: () => {
+            return m_map;
+        },
     };
     var m_map = null;
     var m_map_marker_layer = null;
