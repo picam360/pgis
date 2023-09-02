@@ -7,6 +7,14 @@ var pgis = (() => {
     var m_pos_data = {};
     var m_filtered_ort_data = null;
     var m_point_handler = null;
+    var m_map_handler = {
+        _tile_layer: new ol.layer.Tile({
+            source: new ol.source.OSM()
+        }),
+        set_tile_layer: (layer) => {
+            this._tile_layer = layer;
+        },
+    };
     var m_map = null;
     var m_map_marker_layer = null;
     var m_map_markers = {};
@@ -60,9 +68,7 @@ var pgis = (() => {
         var map = new ol.Map({
             target: 'mapid',
             layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM()
-                })
+                m_map_handler._tile_layer
             ],
             view: new ol.View({
                 center: ol.proj.fromLonLat([0, 0]),
@@ -430,6 +436,7 @@ var pgis = (() => {
             m_e_fileinput.click();
         },
         get_point_handler: () => { return m_point_handler; },
+        get_map_handler: () => { return m_map_handler; },
     }
     return self;
 })();
