@@ -12,7 +12,7 @@ var pgis = (() => {
             source: new ol.source.OSM()
         }),
         set_tile_layer: (layer) => {
-            this._tile_layer = layer;
+            m_map_handler._tile_layer = layer;
         },
     };
     var m_map = null;
