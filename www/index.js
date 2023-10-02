@@ -59,17 +59,17 @@ var pgis = (() => {
         subsc_device_orientation();
         setInterval(show_gps_info, 33);
 
-        navigator.geolocation.watchPosition(update_pos_data);
+        // navigator.geolocation.watchPosition(update_pos_data);
 
-        navigator.geolocation.getCurrentPosition((position) => {
-            console.log("current location", position.coords.latitude, position.coords.longitude);
-            var userLocation = ol.proj.fromLonLat([position.coords.longitude, position.coords.latitude]);
-            m_map.getView().animate({
-                center: userLocation,
-                zoom: 20
-            });
+        // navigator.geolocation.getCurrentPosition((position) => {
+        //     console.log("current location", position.coords.latitude, position.coords.longitude);
+        //     var userLocation = ol.proj.fromLonLat([position.coords.longitude, position.coords.latitude]);
+        //     m_map.getView().animate({
+        //         center: userLocation,
+        //         zoom: 20
+        //     });
 
-        });
+        // });
 
         var map = new ol.Map({
             target: 'mapid',
@@ -81,6 +81,13 @@ var pgis = (() => {
                 zoom: 2
             })
         });
+
+        map.addControl(new ol.control.ScaleLine());
+        let elements = document.getElementsByClassName('ol-scale-line');
+        for (let i = 0; i < elements.length; i++) {
+            elements[i].classList.add('scale-pos');
+        }
+
         m_map = map;
     }
 

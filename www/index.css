@@ -40,3 +40,7 @@ label {
   border-radius: 3px;
   z-index: 1000; /* Ensure it sits on top of the map */
 }
+
+.scale-pos{
+  bottom: 16px !important;
+}
