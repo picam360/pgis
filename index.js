@@ -6,20 +6,21 @@ var pgis = (() => {
     var m_ort_data = [];
     var m_pos_data = {};
     var m_filtered_ort_data = null;
-    var m_point_handler = null;
+    var m_point_handler = {
+        get_point_id_list() { throw new Error('not implemented'); },
+        get_point(gp_id){ throw new Error('not implemented'); },
+        set_point(gp) { throw new Error('not implemented'); },
+        delete_point(gp_id) { throw new Error('not implemented'); },
+    };
     var m_map_handler = {
-        _tile_layer: new ol.layer.Tile({
-            source: new ol.source.OSM()
-        }),
-        set_tile_layer: (layer) => {
-            m_map_handler._tile_layer = layer;
-        },
-        get_tile_layer: (layer) => {
-            return m_map_handler._tile_layer;
-        },
-        get_map: () => {
-            return m_map;
-        },
+        set_tile_layer(layer) { throw new Error('not implemented'); },
+        get_tile_layer(layer) { throw new Error('not implemented'); },
+        get_map() { throw new Error('not implemented'); },
+        set_map(map) { throw new Error('not implemented'); },
+    };
+    var m_gps_handler = {
+        add_set_current_position_callback(callback) { throw new Error('not implemented'); },
+        set_current_position(lat, lng) { throw new Error('not implemented'); },
     };
     var m_map = null;
     var m_map_marker_layer = null;
@@ -58,37 +59,6 @@ var pgis = (() => {
     function init_map() {
         subsc_device_orientation();
         setInterval(show_gps_info, 33);
-
-        // navigator.geolocation.watchPosition(update_pos_data);
-
-        // navigator.geolocation.getCurrentPosition((position) => {
-        //     console.log("current location", position.coords.latitude, position.coords.longitude);
-        //     var userLocation = ol.proj.fromLonLat([position.coords.longitude, position.coords.latitude]);
-        //     m_map.getView().animate({
-        //         center: userLocation,
-        //         zoom: 20
-        //     });
-
-        // });
-
-        var map = new ol.Map({
-            target: 'mapid',
-            layers: [
-                m_map_handler._tile_layer
-            ],
-            view: new ol.View({
-                center: ol.proj.fromLonLat([0, 0]),
-                zoom: 2
-            })
-        });
-
-        map.addControl(new ol.control.ScaleLine());
-        let elements = document.getElementsByClassName('ol-scale-line');
-        for (let i = 0; i < elements.length; i++) {
-            elements[i].classList.add('scale-pos');
-        }
-
-        m_map = map;
     }
 
     document.addEventListener('deviceready', () => {
@@ -368,8 +338,6 @@ var pgis = (() => {
     var self = {
         debug: 0,
         plugin_host: null,
-        map: () => { return m_map; },
-
         init: (options) => {
             m_options = options;
             console.log("loading config...");
@@ -449,7 +417,11 @@ var pgis = (() => {
             m_e_fileinput.click();
         },
         get_point_handler: () => { return m_point_handler; },
+        set_point_handler: (handler) => { m_point_handler = handler; },
         get_map_handler: () => { return m_map_handler; },
+        set_map_handler: (handler) => { m_map_handler = handler; },
+        get_gps_handler: () => { return m_gps_handler; },
+        set_gps_handler: (handler) => { m_gps_handler = handler; },
     }
     return self;
 })();
