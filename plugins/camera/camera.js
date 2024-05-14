@@ -516,6 +516,78 @@ var create_plugin = (function() {
 					display_text(err);
 				}
 			},
+            add_current_pos: () => {
+                if (m_last_gps_info) {
+                    var p = convert_gpsinfo_to_gpspoint(m_last_gps_info);
+                    m_point_handler.set_point(p);
+                    refresh_point_layer();
+                }
+            },
+            remove_pos: () => {
+                if (m_map_selected_marker) {
+                    var p = m_map_markers[m_map_selected_marker._leaflet_id];
+                    if (p) {
+                        m_point_handler.delete_point(p.id);
+                        refresh_point_layer();
+                    }
+                }
+            },
+            clear_pos: () => {
+                var points = m_point_handler.get_points();
+                points.forEach((p) => {
+                    m_point_handler.delete_point(p.id);
+                });
+                refresh_point_layer();
+            },
+            load_points: () => {
+                if (!m_e_fileinput) {
+                    m_e_fileinput = document.getElementById('file-input');
+                    m_e_fileinput.addEventListener('change', function (e) {
+                        var file = e.target.files[0];
+                        if (!file) return;
+    
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var contents = e.target.result;
+                            var json = JSON.parse(contents);
+                            console.log(json);
+    
+                            self.clear_pos();
+    
+                            json.forEach(p => {
+                                m_point_handler.set_point(p);
+                            });
+                            refresh_point_layer();
+                        };
+                        reader.readAsText(file);
+                    });
+                }
+                m_e_fileinput.click();
+            },
+			download_json_file: () => {
+
+                let points = pgis.get_point_handler().get_points();
+                download_json_file(points);
+
+                function download_json_file(json, fname) {
+
+                    if (!fname) {
+                        let date = new Date();
+                        fname = date.toLocaleString().replace(/\//g, '-').replace(/:/g, '-') + ".json";
+                    }
+
+                    const text = JSON.stringify(json);
+                    const blob = new Blob([text], { type: 'application/json' });
+
+                    let dummy_a_el = document.createElement('a');
+                    document.body.appendChild(dummy_a_el);
+                    dummy_a_el.href = window.URL.createObjectURL(blob);
+                    dummy_a_el.download = fname;
+                    dummy_a_el.click();
+                    document.body.removeChild(dummy_a_el);
+                    return fname;
+                }
+            }
 		};
 		return plugin;
 	}
