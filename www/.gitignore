@@ -109,5 +109,5 @@ dist
 
 config.js
 
-www/plugins/oem
-www/plugins/rtk
+plugins/oem
+plugins/rtk
