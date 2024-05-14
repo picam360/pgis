@@ -413,15 +413,6 @@ var create_plugin = (function() {
 	return function(plugin_host) {
 		//debugger;
 		m_plugin_host = plugin_host;
-		m_plugin_host.getFile("plugins/camera/camera.html", function(
-			chunk_array) {
-			var txt = (new TextDecoder).decode(chunk_array[0]);
-			var node = $.parseHTML(txt);
-			$('body').append(node);
-			fn.load('camera.html', () => {		
-				console.log('camera.html loaded');
-			});
-		});
 
 		function prepare_camera() {
 			if (m_camera && m_camera.is_abend()) {
@@ -442,7 +433,34 @@ var create_plugin = (function() {
 		var plugin = {
 			init_options : function(options) {
 				m_options = options;
-				pgis.take_picture = plugin.take_picture;
+                if(m_options.camera && m_options.camera.load_html){
+                    m_plugin_host.getFile("plugins/camera/camera.html", function(
+                        chunk_array) {
+                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        var node = $.parseHTML(txt);
+                        $('body').append(node);
+                        fn.load('camera.html', () => {		
+                            console.log('camera.html loaded');
+
+                            document.getElementById('add-btn').addEventListener('click', function () {
+                                plugin.take_picture();
+                            });
+                            document.getElementById('delete-btn').addEventListener('click', function () {
+                                alert("delete");
+                            });
+                            document.getElementById('download-btn').addEventListener('click', function () {
+                                alert("download");
+                            });
+                        });
+                    });
+                    m_plugin_host.getFile("plugins/camera/camera.css", function (
+                        chunk_array) {
+                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        const el = document.createElement('style');
+                        el.innerHTML = txt;
+                        document.head.appendChild(el);
+                    });
+                }
 				pgis.get_point_handler().add_create_table_callback((columns) => {
 					columns['filepath'] = "TEXT";
 				});

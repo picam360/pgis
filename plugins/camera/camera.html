@@ -1,5 +1,5 @@
-
-<template id="camera.html">
+<ons-template id="camera.html">
+  <ons-navigator swipeable id="main-nav">
     <ons-page id="home">
       <ons-toolbar>
         <div class="right">
@@ -8,51 +8,38 @@
           </ons-toolbar-button>
         </div>
         <div class="center">
-          PGIS
+          pgis
         </div>
       </ons-toolbar>
 
-      <div class="container">
-        <!-- map  -->
-        <div id="info">Click on the map to see the coordinates here.</div>
-        <div id="mapid"></div>
+      <div id="main_container" class="container">
+        <div id="mapid">
+          <div id="popup-form" class="ol-popup"></div>
+          <!-- <div id="status-info-box" class="info-box"> -->
+            <!-- <div class="info-item" style="display: none;">
+              <span>緯度: </span><span id="latitude"></span>
+            </div>
+            <div class="info-item" style="display: none;">
+              <span>経度: </span><span id="longitude"></span>
+            </div> -->
+          <!-- </div> -->
 
-        <!-- actions -->
-        <label for="button-container">actions:</label>
-        <div class="button-container">
-          <!-- <button onclick="showStatus()">status</button> -->
-          <button onclick="pgis.take_picture()">Take picture (gps)</button>
-          <button onclick="pgis.add_current_pos()">Add current pos</button>
-          <button onclick="pgis.remove_pos()">Remove selected pos</button>
-          <button onclick="pgis.clear_pos()">Clear pos</button>
-          <button onclick="pgis.download_points()">Download points</button>
-          <button onclick="pgis.load_points()">Load points</button>
+          <div id="measured-value-box" class="info-box hidden">
+            <div id="measured-distance-disp" class="measured-value-item">
+              10.0 m
+            </div>
+          </div>
+
+          <!-- helper buttons -->
+          <button id="compass-btn" class="overlay-btn-l helper-btn"></button>
+
+          <!-- control buttons -->
+          <button id="add-btn" class="overlay-btn-l"></button>
+          <button id="delete-btn" class="overlay-btn-l"></button>
+          <button id="download-btn" class="overlay-btn-l"></button>
         </div>
-
-        <!-- result display -->
-        <textarea cols="80" rows="10" id="textDisplay"></textarea>
-
-        <!-- gps info -->
-        <ul>
-          <input type="button" id="permit" value="SafariでDeviceOrientationを許可" />
-          <li>【compass】<span id="direction"></span></li>
-          <li>【absolute】<span id="absolute"></span></li>
-          <li>【alpha】<span id="alpha"></span></li>
-          <li>【beta】<span id="beta"></span></li>
-          <li>【gamma】<span id="gamma"></span></li>
-
-          <li>latitude: <span id="latitude"></span></li>
-          <li>longitude: <span id="longitude"></span></li>
-          <li>altitude: <span id="altitude"></span></li>
-          <li>accuracy: <span id="accuracy"></span></li>
-          <li>altitudeAccuracy: <span id="altitudeAccuracy"></span></li>
-          <li>heading: <span id="heading"></span></li>
-          <li>speed: <span id="speed"></span></li>
-          <li>datetime: <span id="datetime"></span></li>
-        </ul>
-
-        <!-- misc -->
-        <input type="file" id="file-input" accept=".json" style="display: none;" />
+        </div>
       </div>
     </ons-page>
-  </template>
+  </ons-navigator>
+</ons-template>

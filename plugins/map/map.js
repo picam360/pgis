@@ -72,19 +72,6 @@ var create_plugin = (function () {
         if (menu) {
             menu.remove();
         }
-        m_plugin_host.getFile("plugins/map/map.html", function (
-            chunk_array) {
-            var txt = (new TextDecoder).decode(chunk_array[0]);
-            var node = $.parseHTML(txt);
-            $('body').append(node);
-        });
-        m_plugin_host.getFile("plugins/map/map.css", function (
-            chunk_array) {
-            var txt = (new TextDecoder).decode(chunk_array[0]);
-            const el = document.createElement('style');
-            el.innerHTML = txt;
-            document.head.appendChild(el);
-        });
 
         var m_map_handler = {
             _tile_layer: new ol.layer.Tile({
@@ -108,6 +95,35 @@ var create_plugin = (function () {
         var plugin = {
             init_options: function (options) {
                 m_options = options;
+                if(m_options.map && m_options.map.load_html){
+                    m_plugin_host.getFile("plugins/map/map.html", function (
+                        chunk_array) {
+                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        var node = $.parseHTML(txt);
+                        $('body').append(node);
+                        fn.load('home.html', () => {		
+                            console.log('home.html loaded');
+                        });
+                    });
+                    m_plugin_host.getFile("plugins/map/map.css", function (
+                        chunk_array) {
+                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        const el = document.createElement('style');
+                        el.innerHTML = txt;
+                        document.head.appendChild(el);
+                    });
+                }
+            },
+            event_handler: function (sender, event) {
+                if (pgis === sender) {
+                    if (event === "loaded") {
+                        setTimeout(() => {
+                            plugin.start_map();
+                        }, 1000)
+                    }
+                }
+            },
+            start_map: () => {
 
                 var map = new ol.Map({
                     target: 'mapid',
@@ -127,15 +143,7 @@ var create_plugin = (function () {
                 }
         
                 m_map = map;
-            },
-            event_handler: function (sender, event) {
-                if (pgis === sender) {
-                    if (event === "loaded") {
-                        plugin.start_map();
-                    }
-                }
-            },
-            start_map: () => {
+
                 m_position_layer = new PositionLayer(m_map, 400);
 
                 var first_call = true;

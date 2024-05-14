@@ -1,16 +1,3 @@
-<ons-splitter>
-  <ons-splitter-side id="menu" side="right" width="220px" collapse>
-    <ons-page>
-      <ons-list>
-        <ons-list-item id="menu-item-close" onclick="fn.close()" tappable>
-          <div class="menu-close right"></div>
-        </ons-list-item>
-    </ons-page>
-  </ons-splitter-side>
-  <ons-splitter-content>
-    <ons-navigator swipeable id="main-nav" page="home.html"></ons-navigator>
-  </ons-splitter-content>
-</ons-splitter>
 
 <template id="settings-page.html">
   <ons-page id="settings-page">
@@ -25,41 +12,43 @@
 </template>
 
 <ons-template id="home.html">
-  <ons-page id="home">
-    <ons-toolbar>
-      <div class="right">
-        <ons-toolbar-button onclick="fn.open()">
-          <ons-icon icon="md-menu"></ons-icon>
-        </ons-toolbar-button>
-      </div>
-      <div class="center">
-        pgis
-      </div>
-    </ons-toolbar>
-
-    <div id="main_container" class="container">
-      <div id="mapid">
-        <div id="popup-form" class="ol-popup"></div>
-        <div id="status-info-box" class="info-box">
-          <!-- <div class="info-item" style="display: none;">
-            <span>緯度: </span><span id="latitude"></span>
-          </div>
-          <div class="info-item" style="display: none;">
-            <span>経度: </span><span id="longitude"></span>
-          </div> -->
+  <ons-navigator swipeable id="main-nav">
+    <ons-page id="home">
+      <ons-toolbar>
+        <div class="right">
+          <ons-toolbar-button onclick="fn.open()">
+            <ons-icon icon="md-menu"></ons-icon>
+          </ons-toolbar-button>
         </div>
-
-        <div id="measured-value-box" class="info-box hidden">
-          <div id="measured-distance-disp" class="measured-value-item">
-            10.0 m
-          </div>
+        <div class="center">
+          pgis
         </div>
+      </ons-toolbar>
 
-        <!-- helper buttons -->
-        <button id="compass-btn" class="overlay-btn-l helper-btn"></button>
+      <div id="main_container" class="container">
+        <div id="mapid">
+          <div id="popup-form" class="ol-popup"></div>
+          <div id="status-info-box" class="info-box">
+            <!-- <div class="info-item" style="display: none;">
+              <span>緯度: </span><span id="latitude"></span>
+            </div>
+            <div class="info-item" style="display: none;">
+              <span>経度: </span><span id="longitude"></span>
+            </div> -->
+          </div>
+
+          <div id="measured-value-box" class="info-box hidden">
+            <div id="measured-distance-disp" class="measured-value-item">
+              10.0 m
+            </div>
+          </div>
+
+          <!-- helper buttons -->
+          <button id="compass-btn" class="overlay-btn-l helper-btn"></button>
+        </div>
       </div>
-    </div>
-    </div>
+      </div>
 
-  </ons-page>
+    </ons-page>
+  </ons-navigator>
 </ons-template>

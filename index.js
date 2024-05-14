@@ -42,18 +42,18 @@ var pgis = (() => {
         closeMenu();
     };
     window.fn.load = function (page, callback) {
-        var content = document.getElementById('content');
-        var menu = document.getElementById('menu');
+        var content = document.getElementById('main-content');
+        var menu = document.getElementById('main-menu');
         content.load(page, { callback })
             .then(menu.close.bind(menu));
     };
 
     function closeMenu() {
-        var menu = document.getElementById('menu');
+        var menu = document.getElementById('main-menu');
         menu.close();
     }
     function openMenu() {
-        var menu = document.getElementById('menu');
+        var menu = document.getElementById('main-menu');
         menu.open();
     }
     function init_map() {
