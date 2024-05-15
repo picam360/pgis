@@ -38,7 +38,17 @@ var create_plugin = (function () {
                 navigator.geolocation.getCurrentPosition((position) => {
                     update_pos_data(position);
                 });
-            }
+            },
+            event_handler: function (sender, event) {
+                if (pgis === sender) {
+                    if (event === "loaded") {
+                        const info_box = document.getElementById('status-info-box');
+                        if(info_box){
+                            info_box.style.display = "none";
+                        }
+                    }
+                }
+            },
         };
         return plugin;
     }
