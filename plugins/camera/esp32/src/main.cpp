@@ -1,57 +1,70 @@
 #include <Arduino.h>
-#include <ESPAsyncWebServer.h>
 #include <NimBLEDevice.h>
-#include <DNSServer.h>
+#include <WiFi.h>
 
 #include <unordered_map>
 
 #include "tools.h"
 #include "rover_settings.h"
 #include "rtk.h"
-#include "secrets.h"
 
 #define TARGET_DEVICE_ATOMS3
 #ifdef TARGET_DEVICE_ATOMS3
 #include <M5AtomS3.h>     // ATOMS3用ライブラリ
 #endif
 
-#define SERVER_PC_NAME "rover"
-#define SERVER_PC_URL "http://rover.local"
-#define DNS_PORT 53
-
-static DNSServer DNS;
+#define WIFI_SSID "picam360"
+#define WIFI_PWD "picam360"
 
 // debug flgs
-static bool _bbg_print_rtcm = true;
-static bool _use_dummy_pos = false;
+
+//ble
+#define BLE_SRV_PSERVER "70333680-7067-0000-0001-000000000001"
+#define BLE_SRV_PSERVER_C_RX "70333681-7067-0000-0001-000000000001"
+#define BLE_SRV_PSERVER_C_TX "70333682-7067-0000-0001-000000000001"
+static NimBLEServer *_ble_svr = nullptr;
+static NimBLEAdvertising *_ble_adv = nullptr;
+static NimBLEService *_ble_svc = nullptr;
+static NimBLECharacteristic *_ble_c_rx = nullptr;
+static NimBLECharacteristic *_ble_c_tx = nullptr;
 
 static int _loop_count = 0;
-static AsyncWebServer _server(80);
-static String _ssid;
-static SemaphoreHandle_t _sem_var_access;
 
-/**
- * WIFI
- */
-void start_server() {
-  _server.on("/pos", HTTP_POST, [](AsyncWebServerRequest *request) {
-    auto ms = millis();
+/** >>>> BLE */
 
-    int params = request->params();
-    for (int i = 0; i < params; i++) {
-      AsyncWebParameter *p = request->getParam(i);
-      if (p->name() == "pos") {
-      }
-    }
-    request->send(200, "text/plain", "Data received");
+void startAdvertising() {
+  if (_ble_adv != nullptr) {
+    _ble_adv->stop();
+  }
+  _ble_adv = NimBLEDevice::getAdvertising();
 
-    dbgPrintf("recv pos POST %d\n", millis() - ms);
-  });
-
-  _server.begin();
+  rtk_ble_add_service_uuid(_ble_adv);
+  _ble_adv->start();
 }
 
-/** WIFI <<<< */
+class BleSvrCb : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer *_ble_svr) {
+    dbgPrintf("ble client connected\n");
+    startAdvertising();
+  }
+  void onDisconnect(NimBLEServer *_ble_svr) {
+    dbgPrintf("ble client disconnected\n");
+  }
+};
+
+class BleChCamRx : public NimBLECharacteristicCallbacks {
+  void onWrite(NimBLECharacteristic *pCharacteristic) {
+    NimBLEAttValue rxData = pCharacteristic->getValue();
+    for(int i=0;i<rxData.length();i++){
+      USBSerial.printf("%x", rxData.data()[i]);
+    }
+    USBSerial.println(" : camrx");
+  }
+};
+class BleChCamTx : public NimBLECharacteristicCallbacks {
+};
+
+/** BLE <<<< */
 
 /********************
  * setup
@@ -66,30 +79,32 @@ void setup() {
 #endif
 
   USBSerial.begin(115200);
+  WiFi.begin(WIFI_SSID, WIFI_PWD);
 
   // read nvs values
   start_use_NVS();
   g_settings = new RoverSettings();
   g_settings->Load();
 
-  rtk_setup();//g_settings required
+  NimBLEDevice::init(g_settings->Ssid.begin());
+  dbgPrintf(false, "ble addr: %s\n",
+            NimBLEDevice::getAddress().toString().c_str());
+  _ble_svr = NimBLEDevice::createServer();
+  _ble_svr->setCallbacks(new BleSvrCb());
 
-  _ssid = g_settings->Ssid;
-  dbgPrintf("SSID: %s\n", _ssid.c_str());
-
-  // start wifi AP
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(_ssid.c_str(), WIFI_AP_PASSWD);
-  dbgPrintf(false, "wifi ap started: %s\n", _ssid.c_str());
-
-	// start dns server
-	if (!DNS.start(DNS_PORT, SERVER_PC_NAME, WiFi.softAPIP())){
-    USBSerial.printf("\n failed to start dns service \n");
+  _ble_svc = _ble_svr->createService(BLE_SRV_PSERVER);
+  {
+    _ble_c_rx = _ble_svc->createCharacteristic(BLE_SRV_PSERVER_C_RX, NIMBLE_PROPERTY::WRITE);
+    _ble_c_rx->setCallbacks(new BleChCamRx());
+    _ble_c_tx = _ble_svc->createCharacteristic(BLE_SRV_PSERVER_C_TX, NIMBLE_PROPERTY::NOTIFY);
+    _ble_c_tx->setCallbacks(new BleChCamTx());
   }
-  // start web server
-  _sem_var_access = xSemaphoreCreateMutex();
-  start_server();
-  dbgPrintf(false, "web server started: %s.local\n", SERVER_PC_NAME);
+  _ble_svc->start();
+
+  rtk_setup();//g_settings required
+  rtk_ble_setup(_ble_svr);
+
+  startAdvertising();
 }
 
 /********************
@@ -100,9 +115,6 @@ void loop() {
 
   rtk_loop();
 
-  //dns server
-	DNS.processNextRequest();
-
 #ifdef TARGET_DEVICE_ATOMS3
   M5.Lcd.setTextColor(WHITE, BLACK);              // 文字色
   M5.Lcd.setTextFont(2);                          // フォント
@@ -110,9 +122,12 @@ void loop() {
   //M5.Lcd.printf("SSID: %.10s\n", WiFi.SSID());       // SSID表示
   M5.Lcd.printf("SSID: %s\n", WiFi.softAPSSID()); // アクセスポイント時のSSID表示
   M5.Lcd.setTextColor(ORANGE, BLACK);             // 文字色
-  M5.Lcd.print("IP  : ");                         // IPアドレス表示
-  //M5.Lcd.println(WiFi.localIP());
-  M5.Lcd.println(WiFi.softAPIP());             // アクセスポイント時のIPアドレス表示
+  M5.Lcd.print("IP: ");                         // IPアドレス表示
+  if (WiFi.status() != WL_CONNECTED) {
+    M5.Lcd.println("Connecting...");
+  }else{
+    M5.Lcd.println(WiFi.localIP());
+  }
   M5.Lcd.drawFastHLine(0, 34, 128, WHITE);        // 指定座標から横線
 
   M5.Lcd.setCursor(0, 38);                        // カーソル座標指定
@@ -120,7 +135,17 @@ void loop() {
   M5.Lcd.printf("Lat: %s\n", rtk_get_latitude());            // 
   M5.Lcd.printf("lng: %s\n", rtk_get_longitude());                 // 
   M5.Lcd.printf("fix: %s\n", rtk_get_fix_quality());                 // 
-
 #endif
 
+  if((_loop_count%100) == 0){
+
+    if (_ble_c_tx->getSubscribedCount() > 0) {//debug
+      auto ms = millis();
+      auto str = std::to_string(_loop_count);
+      _ble_c_tx->setValue(str);
+      _ble_c_tx->notify();
+
+      USBSerial.printf("%s : camtx\n", str.c_str());
+    }
+  }
 }
