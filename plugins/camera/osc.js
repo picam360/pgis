@@ -32,20 +32,24 @@ const oscCam_General = class extends IOSCCamera {
         this.camera_url = options['camera_url'];
     }
 
+    is_abend() {
+        return false;
+    }
+
     take_picture(callback) {
 
         let cmd = {
             name: "camera.takePicture"
         }
-        apiCommand(JSON.stringify(cmd), (json) => {
+        this.api_command(JSON.stringify(cmd), (json) => {
             if (json.id) {
                 let cmd = {
                     id: json.id
                 }
                 this.cmd_check_timer = setInterval(() => {
-                    apiGetStatus(JSON.stringify(cmd), (json) => {
+                    this.api_get_status(JSON.stringify(cmd), (json) => {
                         if (json.state == "done") {
-                            stopTimer();
+                            this.stop_timer();
                             callback({
                                 'status': 'ok',
                                 'body': {
@@ -54,9 +58,9 @@ const oscCam_General = class extends IOSCCamera {
                             });
                         }
                     }, err => {
-                        stopTimer();
+                        this.stop_timer();
                     });
-                }, 100);
+                }, 1000);
             }
             else {
                 callback({
@@ -72,7 +76,7 @@ const oscCam_General = class extends IOSCCamera {
         });
     }
 
-    stopTimer() {
+    stop_timer() {
         if (this.cmd_check_timer) {
             clearInterval(this.cmd_check_timer);
             this.cmd_check_timer = null;
@@ -80,19 +84,20 @@ const oscCam_General = class extends IOSCCamera {
     }
 
     api_get_info(cbSuc, cbErr) {
-        fetchApi(this.camera_url + "/osc/info", "", cbSuc, cbErr);
+        this.fetch_api(this.camera_url + "/info", "", cbSuc, cbErr);
     }
     api_command(jsonText, cbSuc, cbErr) {
-        fetchApi(this.camera_url + "/osc/commands/execute", jsonText, cbSuc, cbErr);
+        this.fetch_api(this.camera_url + "/commands/execute", jsonText, cbSuc, cbErr);
     }
     api_get_status(jsonText, cbSuc, cbErr) {
-        fetchApi(this.camera_url + "/osc/commands/status", jsonText, cbSuc, cbErr);
+        this.fetch_api(this.camera_url + "/commands/status", jsonText, cbSuc, cbErr);
     }
     fetch_api(url, jsonText, cbSuc, cbErr) {
         var myHeaders = new Headers();
-        myHeaders.append("Content-Type", "application/json;charset=utf-8");
-        myHeaders.append("Accept", "application/json");
-        myHeaders.append("X-XSRF-Protected", "1");
+        myHeaders.append('Content-Type', 'application/json');
+        //myHeaders.append("Content-Type", "application/json;charset=utf-8");
+        //myHeaders.append("Accept", "application/json");
+        //myHeaders.append("X-XSRF-Protected", "1");
 
         // var raw = "{\n    \"name\": \"camera.getOptions\",\n    \"parameters\": {\n      \"optionNames\": [\n          \"captureMode\",\n          \"fileFormat\",\n          \"gpsInfo\",\n          \"gpsSupport\"\n      ]\n  }\n}";
         var raw = jsonText;
@@ -105,9 +110,19 @@ const oscCam_General = class extends IOSCCamera {
         };
 
         fetch(url, requestOptions)
-            .then(response => response.json())
-            .then(json => { system.log(json); if (cbSuc) cbSuc(json); })
-            .catch(error => { system.log(error); if (cbErr) cbErr(error); })
+        .then(response => response.json())
+        .then(json => {
+            console.log(json);
+            if (cbSuc) {
+                cbSuc(json);
+            }
+        })
+        .catch(error => {
+            console.log(error);
+            if (cbErr) {
+                cbErr(error);
+            }
+        });
     }
 }
 
