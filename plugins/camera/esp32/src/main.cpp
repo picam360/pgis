@@ -27,6 +27,7 @@ static NimBLEAdvertising *_ble_adv = nullptr;
 static NimBLEService *_ble_svc = nullptr;
 static NimBLECharacteristic *_ble_c_rx = nullptr;
 static NimBLECharacteristic *_ble_c_tx = nullptr;
+static SemaphoreHandle_t _sem_var_access;
 
 static int _loop_count = 0;
 
@@ -81,6 +82,9 @@ void setup() {
   USBSerial.begin(115200);
   WiFi.begin(WIFI_SSID, WIFI_PWD);
 
+  //semaphore
+  _sem_var_access = xSemaphoreCreateMutex();
+
   // read nvs values
   start_use_NVS();
   g_settings = new RoverSettings();
@@ -102,7 +106,7 @@ void setup() {
   _ble_svc->start();
 
   rtk_setup();//g_settings required
-  rtk_ble_setup(_ble_svr);
+  rtk_ble_setup(_ble_svr, _sem_var_access);
 
   startAdvertising();
 }
@@ -140,12 +144,15 @@ void loop() {
   if((_loop_count%100) == 0){
 
     if (_ble_c_tx->getSubscribedCount() > 0) {//debug
-      auto ms = millis();
-      auto str = std::to_string(_loop_count);
-      _ble_c_tx->setValue(str);
-      _ble_c_tx->notify();
+      if (xSemaphoreTake(_sem_var_access, 50) != pdFALSE) {
+        auto str = std::to_string(_loop_count);
+        _ble_c_tx->setValue(str);
+        _ble_c_tx->notify();
 
-      USBSerial.printf("%s : camtx\n", str.c_str());
+        USBSerial.printf("%s : camtx\n", str.c_str());
+        
+        xSemaphoreGive(_sem_var_access);
+      }
     }
   }
 }
