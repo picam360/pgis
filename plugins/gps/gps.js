@@ -21,6 +21,15 @@ var create_plugin = (function () {
                     callback(lat, lng);
                 }
             },
+            get_current_position: () => {
+                return {
+                    x : m_gps_handler._lng,
+                    y : m_gps_handler._lat,
+                    latitude : m_gps_handler._lat,
+                    longitude : m_gps_handler._lng,
+                    timestamp : Date.now(),
+                };
+            },
         };
         pgis.set_gps_handler(m_gps_handler);
 

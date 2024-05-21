@@ -48,12 +48,12 @@ const oscCam_General = class extends IOSCCamera {
                 }
                 this.cmd_check_timer = setInterval(() => {
                     this.api_get_status(JSON.stringify(cmd), (json) => {
-                        if (json.state == "done") {
+                        if (json.state == "done" && this.cmd_check_timer) {
                             this.stop_timer();
                             callback({
                                 'status': 'ok',
                                 'body': {
-                                    'file_url': json.results.fileUrl
+                                    'file_name': json.results.fileUrl
                                 }
                             });
                         }
@@ -84,13 +84,13 @@ const oscCam_General = class extends IOSCCamera {
     }
 
     api_get_info(cbSuc, cbErr) {
-        this.fetch_api(this.camera_url + "/info", "", cbSuc, cbErr);
+        this.fetch_api(this.camera_url + "/ocs/info", "", cbSuc, cbErr);
     }
     api_command(jsonText, cbSuc, cbErr) {
-        this.fetch_api(this.camera_url + "/commands/execute", jsonText, cbSuc, cbErr);
+        this.fetch_api(this.camera_url + "/ocs/commands/execute", jsonText, cbSuc, cbErr);
     }
     api_get_status(jsonText, cbSuc, cbErr) {
-        this.fetch_api(this.camera_url + "/commands/status", jsonText, cbSuc, cbErr);
+        this.fetch_api(this.camera_url + "/ocs/commands/status", jsonText, cbSuc, cbErr);
     }
     fetch_api(url, jsonText, cbSuc, cbErr) {
         var myHeaders = new Headers();

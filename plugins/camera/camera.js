@@ -2,7 +2,6 @@ var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
     var m_camera = null;
-	var m_filepath = "";
 
     const BLE_SRV_PSERVER = "70333680-7067-0000-0001-000000000001";
     const BLE_SRV_PSERVER_C_RX = "70333681-7067-0000-0001-000000000001";
@@ -73,14 +72,18 @@ var create_plugin = (function() {
                         fn.load('camera.html', () => {		
                             console.log('camera.html loaded');
 
+                            document.getElementById('view-btn').addEventListener('click', function () {
+                                plugin.open_pviewer();
+                            });
+
                             document.getElementById('add-btn').addEventListener('click', function () {
                                 plugin.take_picture();
                             });
                             document.getElementById('delete-btn').addEventListener('click', function () {
-                                alert("delete");
+                                plugin.remove_pos();
                             });
                             document.getElementById('download-btn').addEventListener('click', function () {
-                                alert("download");
+                                plugin.generate_psf();
                             });
                         });
                     });
@@ -95,11 +98,10 @@ var create_plugin = (function() {
 				pgis.get_point_handler().add_create_table_callback((columns) => {
 					columns['filepath'] = "TEXT";
 				});
-				pgis.get_point_handler().add_insert_callback((columns) => {
-					columns['filepath'] = m_filepath;
-					m_filepath = "";
+				pgis.get_point_handler().add_insert_callback((columns, gp) => {
+					columns['filepath'] = gp.filepath;
 				});
-                if(rtk){
+                if(window.rtk){
                     rtk.set_ble_server_connect_options({
                         optionalServices : [ BLE_SRV_PSERVER ],
                         callback : async (ble_server) => {
@@ -110,6 +112,37 @@ var create_plugin = (function() {
 			},
 			event_handler : function(sender, event) {
 			},
+            open_pviewer: () => {
+                // create camera
+                prepare_camera();
+                if (!m_camera) {
+                    console.log("no camera");
+                    return;
+                }
+
+                //var pviewer_url = "https://picam360.github.io/pviewer";
+                var pviewer_url = "https://localhost/pviewer";
+
+                var features = pgis.get_map_handler().get_selected_points();
+                if(features && features.length > 0){
+                    var pgis_p = features[0].pgis_point;
+                    var pvf_url = m_camera.camera_url + "/pvf/" + pgis_p.filepath;
+                    var url = pviewer_url + "?pvf=" + encodeURIComponent(pvf_url);
+                    window.open(url, '_blank');
+                }else{
+                    var psf_config = plugin.get_psf_config();
+                    if(psf_config.points.length > 0){
+                        for(var psf_p of psf_config.points){
+                            var pvf_url = m_camera.camera_url + "/pvf/" + psf_p.path;
+                            psf_p.path = pvf_url;
+                        }
+                        psf_config.start_point = psf_config.points[0].path;
+                    }
+                    var psf_config_txt = "data:application/json;base64," + btoa(JSON.stringify(psf_config));
+                    var url = pviewer_url + "?pvf=" + encodeURIComponent(psf_config_txt);
+                    window.open(url, '_blank');
+                }
+            },
 			take_picture: () => {
 				try {
 					// create camera
@@ -118,41 +151,35 @@ var create_plugin = (function() {
                         console.log("no camera");
                         return;
                     }
+
+                    var take_picture_callback = (res) => {
+                        if (res.status === 'ok') {
+                            let a = res.body.file_name.split('/');
+                            let fname = a[a.length - 1];
+                            var cur_pos = pgis.get_gps_handler().get_current_position();
+                            cur_pos.filepath = fname;
+                            pgis.get_point_handler().set_point(cur_pos);
+                            pgis.get_map_handler().refresh();
+                            console.log(`file: ${fname}`);
+                            console.log(`---`);
+                        }
+                        else if (res.status === 'processing') {
+                            console.log(res.body.state);
+                        }
+                        else {
+                            console.log(JSON.stringify(res));
+                        }
+                    };
 	
 					// take picture
 					console.log("taking picture");
 					switch (m_options.camera.name) {
                     case "pserver_ble":
                     case "ble":
-                        m_camera.take_picture((res) => {
-                            if (res.status === 'ok') {
-                                let a = res.body.file_name.split('/');
-                                let fname = a[a.length - 1];
-                                m_filepath = fname;
-                                m_point_handler.set_point(cur_pos);
-                                refresh_point_layer();
-                                console.log(`file: ${fname}`);
-                                console.log(`---`);
-                            }
-                            else if (res.status === 'processing') {
-                                console.log(res.body.state);
-                            }
-                            else {
-                                console.log(JSON.stringify(res));
-                            }
-                        });
+                        m_camera.take_picture(take_picture_callback);
                         break;
                     case "osc":
-                        m_camera.take_picture((res) => {
-                            if (res.status === 'ok') {
-                                let a = res.body.file_url.split('/');
-                                let fname = a[a.length - 1] + ".json";
-                                console.log(`file: ${fname}`);
-                                console.log(`---`);
-                            } else {
-                                console.log(res.body);
-                            }
-                        });
+                        m_camera.take_picture(take_picture_callback);
                         break;
 					}
 				}
@@ -160,28 +187,82 @@ var create_plugin = (function() {
 					console.log(err);
 				}
 			},
+            generate_psf: () => {
+                // create camera
+                prepare_camera();
+                if (!m_camera) {
+                    console.log("no camera");
+                    return;
+                }
+
+                var psf_config = plugin.get_psf_config();
+
+                let cmd = {
+                    name: "pserver.generatePsf",
+                    psf_config: psf_config,
+                }
+                m_camera.api_command(JSON.stringify(cmd), (json) => {
+                    if (json.id) {
+                        let cmd = {
+                            id: json.id
+                        }
+                        m_camera.cmd_check_timer = setInterval(() => {
+                            m_camera.api_get_status(JSON.stringify(cmd), (json) => {
+                                if (json.state == "done" && m_camera.cmd_check_timer) {
+                                    let a = res.body.file_name.split('/');
+                                    let fname = a[a.length - 1];
+                                    let url = m_camera.camera_url + "/pvf/" + fname;
+
+                                    let dummy_a_el = document.createElement('a');
+                                    document.body.appendChild(dummy_a_el);
+                                    dummy_a_el.href = url;
+                                    dummy_a_el.download = fname;
+                                    dummy_a_el.click();
+                                    document.body.removeChild(dummy_a_el);
+                                    
+                                    console.log(`file: ${fname}`);
+                                    console.log(`---`);
+                                }
+                            }, err => {
+                                m_camera.stop_timer();
+                            });
+                        }, 1000);
+                    }
+                    else {
+                        callback({
+                            'status': 'invalid_response_from_camera',
+                            'body': json
+                        });
+                    }
+                }, (err) => {
+                    callback({
+                        'status': 'invalid_response_from_camera',
+                        'body': err
+                    });
+                });
+            },
             add_current_pos: () => {
                 if (m_last_gps_info) {
                     var p = convert_gpsinfo_to_gpspoint(m_last_gps_info);
-                    m_point_handler.set_point(p);
-                    refresh_point_layer();
+                    pgis.get_point_handler().set_point(p);
+                    pgis.get_map_handler().refresh();
                 }
             },
             remove_pos: () => {
-                if (m_map_selected_marker) {
-                    var p = m_map_markers[m_map_selected_marker._leaflet_id];
+                for (var feature of pgis.get_map_handler().get_selected_points()) {
+                    var p = feature.pgis_point;
                     if (p) {
-                        m_point_handler.delete_point(p.id);
-                        refresh_point_layer();
+                        pgis.get_point_handler().delete_point(p.id);
+                        pgis.get_map_handler().refresh();
                     }
                 }
             },
             clear_pos: () => {
-                var points = m_point_handler.get_points();
+                var points = pgis.get_point_handler().get_points();
                 points.forEach((p) => {
-                    m_point_handler.delete_point(p.id);
+                    pgis.get_point_handler().delete_point(p.id);
                 });
-                refresh_point_layer();
+                pgis.get_map_handler().refresh();
             },
             load_points: () => {
                 if (!m_e_fileinput) {
@@ -199,19 +280,37 @@ var create_plugin = (function() {
                             self.clear_pos();
     
                             json.forEach(p => {
-                                m_point_handler.set_point(p);
+                                pgis.get_point_handler().set_point(p);
                             });
-                            refresh_point_layer();
+                            pgis.get_map_handler().refresh();
                         };
                         reader.readAsText(file);
                     });
                 }
                 m_e_fileinput.click();
             },
-			download_json_file: () => {
-
-                let points = pgis.get_point_handler().get_points();
-                download_json_file(points);
+            get_psf_config: () => {
+                var psf_config = {
+                    "format" : "psf",
+                    "version" : "1.1",
+                    "points" : [],
+                };
+                var points = pgis.get_point_handler().get_points();
+                if(points && points.length > 0){
+                    psf_config.start_point = points[0].filepath;
+                    for(var pgis_p of points){
+                        psf_config.points.push({
+                            location : `${pgis_p.x || 0},${pgis_p.y || 0},${pgis_p.z || 0}`,
+                            compass : pgis_p.compass || 0,
+                            path : pgis_p.filepath,
+                        });
+                    }
+                }
+                return psf_config;
+            },
+			download_file: () => {
+                var psf_config = plugin.get_psf_config();
+                download_json_file(psf_config);
 
                 function download_json_file(json, fname) {
 

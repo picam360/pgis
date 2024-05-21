@@ -13,10 +13,13 @@ var pgis = (() => {
         get_tile_layer(layer) { throw new Error('not implemented'); },
         get_map() { throw new Error('not implemented'); },
         set_map(map) { throw new Error('not implemented'); },
+        refresh() { throw new Error('not implemented'); },
+        get_selected_points() { throw new Error('not implemented'); },
     };
     var m_gps_handler = {
         add_set_current_position_callback(callback) { throw new Error('not implemented'); },
         set_current_position(lat, lng) { throw new Error('not implemented'); },
+        get_current_position() { throw new Error('not implemented'); },
     };
 
     /**
@@ -75,6 +78,7 @@ var pgis = (() => {
                 clearInterval(timer);
                 self.plugin_host.init_plugins().then(() => {
                     setTimeout(() => {
+                        m_point_handler.init();
                         pgis.plugin_host.send_event(self, "loaded");
                     }, 1000);
                 });

@@ -193,7 +193,7 @@ class PointHanlder extends IPointHanlder {
             timestamp: gp.timestamp,
         };
         for(var insert_callback of this.insert_callbacks){
-            insert_callback(columns);
+            insert_callback(columns, gp);
         }
         var names = "";
         var values = "";
