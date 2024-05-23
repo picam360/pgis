@@ -3,26 +3,6 @@
  * 
  * BLE
  */
-const bleApi = class {
-    static create_camera(camera_type, options) {
-        switch (camera_type) {
-            case 'insta360x3':
-                return new bleCam_Insta360x3(options);
-            default:// not confirmed cameras.
-                return new bleCam_Insta360x3(options);
-        }
-    }
-}
-
-class IBLECamera {
-    constructor() {
-        if (this.constructor === IBLECamera) {
-            throw new Error('interface can not be called as class');
-        }
-    }
-    take_picture(cbRes) { throw new Error('not implemented'); }
-    m_is_abend() { throw new Error('not implemented'); }
-}
 
 const bleCam_Insta360x3 = class extends IBLECamera {
     constructor(options) {

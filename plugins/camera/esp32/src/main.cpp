@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
-#include <WiFi.h>
+#include <HTTPClient.h>
 
 #include <unordered_map>
 
@@ -12,9 +12,6 @@
 #ifdef TARGET_DEVICE_ATOMS3
 #include <M5AtomS3.h>     // ATOMS3用ライブラリ
 #endif
-
-#define WIFI_SSID "picam360"
-#define WIFI_PWD "picam360"
 
 // debug flgs
 
@@ -30,6 +27,9 @@ static NimBLECharacteristic *_ble_c_tx = nullptr;
 static SemaphoreHandle_t _sem_var_access;
 
 static int _loop_count = 0;
+static std::vector<uint8_t> _read_line;
+static std::string _ssid;
+static std::string _ip_address;
 
 /** >>>> BLE */
 
@@ -53,13 +53,34 @@ class BleSvrCb : public NimBLEServerCallbacks {
   }
 };
 
+static void write_camtx(std::string str){
+  if (_ble_c_tx->getSubscribedCount() > 0) {
+    if (xSemaphoreTake(_sem_var_access, 50) != pdFALSE) {
+      _ble_c_tx->setValue(str);
+      _ble_c_tx->notify();
+
+      USBSerial.printf("BLE_CAMTX %s\n", str.c_str());
+
+      xSemaphoreGive(_sem_var_access);
+    }
+  }
+}
+
 class BleChCamRx : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic *pCharacteristic) {
     NimBLEAttValue rxData = pCharacteristic->getValue();
-    for(int i=0;i<rxData.length();i++){
-      USBSerial.printf("%x", rxData.data()[i]);
+    if(strncmp(rxData.c_str(), "REQ GET_IP", 10) == 0){
+      std::string str = "RES GET_IP " + _ip_address;
+      write_camtx(str);
+    }else if(strncmp(rxData.c_str(), "REQ GET_SSID", 12) == 0){
+      std::string str = "RES GET_SSID " + _ssid;
+      write_camtx(str);
+    }else{//relay
+      for(int i=0;i<rxData.length();i++){
+        USBSerial.printf("%x", rxData.data()[i]);
+      }
+      USBSerial.println("");
     }
-    USBSerial.println(" : camrx");
   }
 };
 class BleChCamTx : public NimBLECharacteristicCallbacks {
@@ -80,7 +101,6 @@ void setup() {
 #endif
 
   USBSerial.begin(115200);
-  WiFi.begin(WIFI_SSID, WIFI_PWD);
 
   //semaphore
   _sem_var_access = xSemaphoreCreateMutex();
@@ -123,36 +143,45 @@ void loop() {
   M5.Lcd.setTextColor(WHITE, BLACK);              // 文字色
   M5.Lcd.setTextFont(2);                          // フォント
   M5.Lcd.setCursor(0, 0);                        // カーソル座標指定
-  //M5.Lcd.printf("SSID: %.10s\n", WiFi.SSID());       // SSID表示
-  M5.Lcd.printf("SSID: %s\n", WiFi.softAPSSID()); // アクセスポイント時のSSID表示
+  M5.Lcd.printf("SSID: %.10s\n", _ssid.c_str()); // アクセスポイント時のSSID表示
   M5.Lcd.setTextColor(ORANGE, BLACK);             // 文字色
-  M5.Lcd.print("IP: ");                         // IPアドレス表示
-  if (WiFi.status() != WL_CONNECTED) {
-    M5.Lcd.println("Connecting...");
-  }else{
-    M5.Lcd.println(WiFi.localIP());
-  }
+  M5.Lcd.printf("IP: %.10s\n", _ip_address.c_str());                         // IPアドレス表示
   M5.Lcd.drawFastHLine(0, 34, 128, WHITE);        // 指定座標から横線
 
   M5.Lcd.setCursor(0, 38);                        // カーソル座標指定
   M5.Lcd.setTextColor(CYAN, BLACK);               // 文字色
-  M5.Lcd.printf("Lat: %s\n", rtk_get_latitude());            // 
-  M5.Lcd.printf("lng: %s\n", rtk_get_longitude());                 // 
-  M5.Lcd.printf("fix: %s\n", rtk_get_fix_quality());                 // 
+  M5.Lcd.printf("LAT: %s\n", rtk_get_latitude());            // 
+  M5.Lcd.printf("LNG: %s\n", rtk_get_longitude());                 // 
+  M5.Lcd.printf("FIX: %s\n", rtk_get_fix_quality());                 // 
 #endif
-
-  if((_loop_count%100) == 0){
-
-    if (_ble_c_tx->getSubscribedCount() > 0) {//debug
-      if (xSemaphoreTake(_sem_var_access, 50) != pdFALSE) {
-        auto str = std::to_string(_loop_count);
-        _ble_c_tx->setValue(str);
-        _ble_c_tx->notify();
-
-        USBSerial.printf("%s : camtx\n", str.c_str());
-        
-        xSemaphoreGive(_sem_var_access);
+  if((_loop_count%1000) == 0){
+    int step = (_loop_count/1000)%2;
+    switch(step){
+    case 0:
+      USBSerial.println("REQ GET_IP");
+      break;
+    case 1:
+      USBSerial.println("REQ GET_SSID");
+      break;
+    }
+  }
+  if (USBSerial.available() > 0) {
+    int c = USBSerial.read();
+    if(c == '\n'){
+      _read_line.push_back('\0');
+      if (strncmp((char*)_read_line.data(), "RES GET_IP ", 11) == 0){
+        _ip_address = (char*)(_read_line.data() + 11);
+      }else if (strncmp((char*)_read_line.data(), "RES GET_SSID ", 13) == 0){
+        _ssid = (char*)(_read_line.data() + 13);
+      }else{
+        write_camtx((char*)_read_line.data());
       }
+      USBSerial.printf("ECHO %s\n", (char*)_read_line.data());
+      _read_line.clear();
+    }else if(c == '\r'){
+      //do nothing
+    }else{
+      _read_line.push_back(c);
     }
   }
 }

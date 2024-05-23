@@ -1,11 +1,19 @@
+
+class IBLECamera {
+    constructor() {
+        if (this.constructor === IBLECamera) {
+            throw new Error('interface can not be called as class');
+        }
+    }
+    take_picture(cbRes) { throw new Error('not implemented'); }
+    m_is_abend() { throw new Error('not implemented'); }
+}
+
 var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
     var m_camera = null;
-
-    const BLE_SRV_PSERVER = "70333680-7067-0000-0001-000000000001";
-    const BLE_SRV_PSERVER_C_RX = "70333681-7067-0000-0001-000000000001";
-    const BLE_SRV_PSERVER_C_TX = "70333682-7067-0000-0001-000000000001";
+    var m_pserver_ble = null;
 
 	return function(plugin_host) {
 		//debugger;
@@ -21,34 +29,29 @@ var create_plugin = (function() {
                 if(m_options.camera.camera_options){
                     options = m_options.camera.camera_options[m_options.camera.name];
                 }
+                if(!options){
+                    options = {};
+                }
 				switch (m_options.camera.name){
-                case "pserver_ble":
-                    if(bleApi){
-                        var ble_device = null;
-                        if(rtk){
-                            var devs = rtk.get_ble_devices();
-                            if(devs && devs.length != 0){
-                                ble_device = devs[0].get_ble_device();
-                            }
+                case "pserver":
+                    if(oscApi){
+                        if(!options.camera_url){
+                            m_pserver_ble.get_ip((ip) => {
+                                if(!ip){
+                                    alert("pserver not found");
+                                    return;
+                                }
+                                options.camera_url = `https://${ip}:9002`;
+                                m_camera = oscApi.create_camera('unspecified', options);
+                            });
+                        }else{
+                            m_camera = oscApi.create_camera('unspecified', options);
                         }
-                        options = {
-                            device : ble_device,
-                            service_guid : BLE_SRV_PSERVER,
-                            primary_service_guid : BLE_SRV_PSERVER,
-                            characteristic_write_guid : BLE_SRV_PSERVER_C_RX,
-                            characteristic_read_guid : BLE_SRV_PSERVER_C_TX,
-                            command_values : {
-                                'take_picture': new Uint8Array([0x10, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0x02, 0x0C, 0x00, 0x00, 0x80, 0x00, 0x00]),
-                                'read_response': new Uint8Array([0x10, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x0E, 0xC8, 0x02, 0x0C, 0x00, 0x00, 0x80, 0x00, 0x00]),
-                                '_read_response': new Uint8Array([0x07, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
-                            }
-                        };
-                        m_camera = bleApi.create_camera('unspecified', options);
                     }
                     break;
-                case "ble":
-                    if(bleApi){
-                        m_camera = bleApi.create_camera('unspecified', options);
+                case "insta360_ble":
+                    if(bleCam_Insta360x3){
+                        m_camera = new bleCam_Insta360x3(options);
                     }
                     break;
                 case "osc":
@@ -104,8 +107,24 @@ var create_plugin = (function() {
                 if(window.rtk){
                     rtk.set_ble_server_connect_options({
                         optionalServices : [ BLE_SRV_PSERVER ],
-                        callback : async (ble_server) => {
+                        callback : async (ble_device, ble_server) => {
                             m_ble_server = ble_server;
+                            if (m_options.camera.name == "pserver"){
+                                if(!bleCam_Pserver){
+                                    alert("pserver_ble.js might not be loaded.");
+                                    return;
+                                }
+                                var options = {
+                                    device : ble_device,
+                                    server : ble_server,
+                                };
+                                m_pserver_ble = new bleCam_Pserver(options);
+                                m_pserver_ble.start_connect(() => {
+                                    console.log("connect pserver_ble device");
+                                }, () => {
+                                    console.log("connect pserver_ble server");
+                                });
+                            }
                         }
                     });
                 }
@@ -126,14 +145,14 @@ var create_plugin = (function() {
                 var features = pgis.get_map_handler().get_selected_points();
                 if(features && features.length > 0){
                     var pgis_p = features[0].pgis_point;
-                    var pvf_url = m_camera.camera_url + "/pvf/" + pgis_p.filepath;
+                    var pvf_url = m_camera.camera_url + "/" + pgis_p.filepath;
                     var url = pviewer_url + "?pvf=" + encodeURIComponent(pvf_url);
                     window.open(url, '_blank');
                 }else{
                     var psf_config = plugin.get_psf_config();
                     if(psf_config.points.length > 0){
                         for(var psf_p of psf_config.points){
-                            var pvf_url = m_camera.camera_url + "/pvf/" + psf_p.path;
+                            var pvf_url = m_camera.camera_url + "/" + psf_p.path;
                             psf_p.path = pvf_url;
                         }
                         psf_config.start_point = psf_config.points[0].path;
@@ -154,13 +173,11 @@ var create_plugin = (function() {
 
                     var take_picture_callback = (res) => {
                         if (res.status === 'ok') {
-                            let a = res.body.file_name.split('/');
-                            let fname = a[a.length - 1];
                             var cur_pos = pgis.get_gps_handler().get_current_position();
-                            cur_pos.filepath = fname;
+                            cur_pos.filepath = res.body.file_name;
                             pgis.get_point_handler().set_point(cur_pos);
                             pgis.get_map_handler().refresh();
-                            console.log(`file: ${fname}`);
+                            console.log(`file: ${res.body.file_name}`);
                             console.log(`---`);
                         }
                         else if (res.status === 'processing') {
@@ -174,10 +191,10 @@ var create_plugin = (function() {
 					// take picture
 					console.log("taking picture");
 					switch (m_options.camera.name) {
-                    case "pserver_ble":
                     case "ble":
                         m_camera.take_picture(take_picture_callback);
                         break;
+                    case "pserver":
                     case "osc":
                         m_camera.take_picture(take_picture_callback);
                         break;
@@ -209,18 +226,18 @@ var create_plugin = (function() {
                         m_camera.cmd_check_timer = setInterval(() => {
                             m_camera.api_get_status(JSON.stringify(cmd), (json) => {
                                 if (json.state == "done" && m_camera.cmd_check_timer) {
-                                    let a = res.body.file_name.split('/');
-                                    let fname = a[a.length - 1];
-                                    let url = m_camera.camera_url + "/pvf/" + fname;
+                                    m_camera.stop_timer();
+
+                                    let url = m_camera.camera_url + "/" + json.results.fileUrl;
 
                                     let dummy_a_el = document.createElement('a');
                                     document.body.appendChild(dummy_a_el);
                                     dummy_a_el.href = url;
-                                    dummy_a_el.download = fname;
+                                    dummy_a_el.download = json.results.fileUrl;
                                     dummy_a_el.click();
                                     document.body.removeChild(dummy_a_el);
                                     
-                                    console.log(`file: ${fname}`);
+                                    console.log(`file: ${json.results.fileUrl}`);
                                     console.log(`---`);
                                 }
                             }, err => {
