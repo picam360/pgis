@@ -76,10 +76,7 @@ class BleChCamRx : public NimBLECharacteristicCallbacks {
       std::string str = "RES GET_SSID " + _ssid;
       write_camtx(str);
     }else{//relay
-      for(int i=0;i<rxData.length();i++){
-        USBSerial.printf("%x", rxData.data()[i]);
-      }
-      USBSerial.println("");
+      USBSerial.println(rxData.c_str());
     }
   }
 };

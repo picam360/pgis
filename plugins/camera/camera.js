@@ -37,7 +37,7 @@ var create_plugin = (function() {
                     if(oscApi){
                         if(!options.camera_url){
                             m_pserver_ble.get_ip((ip) => {
-                                if(!ip){
+                                if(!ip || ip == "IP_NOT_FOUND"){
                                     alert("pserver not found");
                                     return;
                                 }
@@ -74,6 +74,10 @@ var create_plugin = (function() {
                         $('body').append(node);
                         fn.load('camera.html', () => {		
                             console.log('camera.html loaded');
+
+                            document.getElementById('wifi-btn').addEventListener('click', function () {
+                                plugin.connect_wifi();
+                            });
 
                             document.getElementById('view-btn').addEventListener('click', function () {
                                 plugin.open_pviewer();
@@ -123,6 +127,7 @@ var create_plugin = (function() {
                                     console.log("connect pserver_ble device");
                                 }, () => {
                                     console.log("connect pserver_ble server");
+                                    $("#wifi-btn").show();
                                 });
                             }
                         }
@@ -131,6 +136,38 @@ var create_plugin = (function() {
 			},
 			event_handler : function(sender, event) {
 			},
+            connect_wifi : () => {
+                m_pserver_ble.get_wifi_networks((list) => {
+                    var dialog = document.getElementById('wifi-dialog');
+                    if (dialog) {
+                        dialog.show();
+                    } else {
+                        ons.createElement('wifi-dialog.html', { append: true })
+                        .then(function (dialog) {
+
+                            const ssidSelect = $("#ssid-select")[0];
+                            list.forEach(ssid => {
+                                ssidSelect.options.add(new Option(ssid, ssid));
+                            });
+
+                            $("#connect-btn").click(function() {
+                                const ssid = $("#ssid-select").val();
+                                const password = $("#password").val();
+
+                                m_pserver_ble.connect_wifi(ssid, password, () => {
+                                    $("#wifi-dialog")[0].hide();
+                                });
+                            });
+                        
+                            $("#cancel-btn").click(function() {
+                                $("#wifi-dialog")[0].hide();
+                            });
+
+                            dialog.show();
+                        });
+                    }
+               });
+            },
             open_pviewer: () => {
                 // create camera
                 prepare_camera();

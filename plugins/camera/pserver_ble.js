@@ -14,8 +14,9 @@ const bleCam_Pserver = class extends IBLECamera {
         this._ble_c_camtx = null;
         this._on_device_connected = null;
         this._on_server_connected = null;
+        this._writeOperationInProgress = false;
 
-        this.m_callback = null;
+        this.m_callback = {};
         this.m_is_abend = false;
         this.m_ip_address = "";
         this.m_ssid = "";
@@ -73,17 +74,17 @@ const bleCam_Pserver = class extends IBLECamera {
                 this._ble_c_camtx.addEventListener('characteristicvaluechanged', this.readCharacteristicValue);
 
                 var step = 0;
-                setInterval(() => {
+                setInterval(async () => {
                     switch(step%2){
                     case 0:
-                        this._ble_c_camrx.writeValue(new TextEncoder().encode("REQ GET_IP"));
+                        this.writeGattValue("REQ GET_IP");
                         break;
                     case 1:
-                        this._ble_c_camrx.writeValue(new TextEncoder().encode("REQ GET_SSID"));
+                        this.writeGattValue("REQ GET_SSID");
                         break;
                     }
                     step++;
-                }, 2000);
+                }, 5000);
             });
 
             if (this._on_server_connected) {
@@ -94,6 +95,24 @@ const bleCam_Pserver = class extends IBLECamera {
             console.error("Failed to connect to ble:", error);
         }
     }
+
+    async writeGattValue(value) {
+
+        if (this._writeOperationInProgress) {
+            console.log('GATT operation already in progress.');
+            return;
+        }
+
+        this._writeOperationInProgress = true;
+
+        try {
+            await this._ble_c_camrx.writeValue(new TextEncoder().encode(value));
+        } catch (error) {
+            console.error('GATT operation failed:', error);
+        } finally {
+            this._writeOperationInProgress = false;
+        }
+    }
     readCharacteristicValue = (event) => {
         let data = event.target.value;
         var str = new TextDecoder().decode(data);
@@ -101,6 +120,18 @@ const bleCam_Pserver = class extends IBLECamera {
             this.m_ip_address = str.substring(11);
         }else if(str.startsWith("RES GET_SSID ")){
             this.m_ssid = str.substring(13);
+        }else if(str.startsWith("RES GET_WIFI_NETWORKS ")){
+            if(this.m_callback.GET_WIFI_NETWORKS){
+                var list = str.split(' ');
+                this.m_callback.GET_WIFI_NETWORKS(list.slice(2));
+                this.m_callback.GET_WIFI_NETWORKS = null;
+            }
+        }else if(str.startsWith("RES CONNECT_WIFI ")){
+            if(this.m_callback.CONNECT_WIFI){
+                var list = str.split(' ');
+                this.m_callback.CONNECT_WIFI(list[2]);
+                this.m_callback.CONNECT_WIFI = null;
+            }
         }
         console.log("BLE_CAMTX", str);
     }
@@ -108,68 +139,7 @@ const bleCam_Pserver = class extends IBLECamera {
     is_abend() {
         return this.m_is_abend;
     }
-
-    _command_write(command_value) {
-        if (this.m_command_wait_timer) {
-            console.log('command skipped because prev command runnning')
-            return;
-        }
-
-        this._clear_command_result();
-        this.m_device.gatt.connect()
-            .then(server => {
-                return server.getPrimaryService(this.m_primary_service_guid);
-            })
-            .then(service => {
-                return service.getCharacteristic(this.m_characteristic_write_guid);
-            })
-            .then(characteristic => {
-                this.m_characteristic_write = characteristic;
-                this.m_command_wait_timer = setTimeout(
-                    this._command_timeout.bind(this),
-                    this.CMD_TIMEOUT_MS);
-                return characteristic.writeValue(command_value);
-            })
-            .then((data) => {
-                // this.m_callback({
-                //     'status': 'ok'
-                // });
-            })
-            .catch(err => {
-                throw new Error({
-                    'status': 'connection_failed',
-                    'body': err
-                });
-            });
-    }
-
-    _command_timeout() {
-        this._clear_command_result();
-        this.m_command_wait_timer = null;
-        this.m_is_abend = true;
-        if(this.m_b_subsc_notfications){
-            this.m_b_subsc_notfications = false;
-            this.m_characteristic_read.stopNotifications().then(() => {
-                console.log('Notifications stopped');
-            }).catch(error => {
-                console.log('Failed to stop notifications: ', error);
-            });
-            this.m_characteristic_read = null;
-        }
-        this.m_callback({
-            'status': 'command_timeout',
-            'body': {
-                'command': this.m_cur_command
-            }
-        });
-    }
-
-    _stop_command_timer() {
-        if (this.m_command_wait_timer) {
-            clearTimeout(this.m_command_wait_timer);
-            this.m_command_wait_timer = null;
-        }
-    }
+    
     take_picture(callback) {
     }
     get_ip(callback){
@@ -177,6 +147,14 @@ const bleCam_Pserver = class extends IBLECamera {
     }
     get_ssid(callback){
         callback(this.m_ssid);
+    }
+    async get_wifi_networks(callback){
+        this.m_callback.GET_WIFI_NETWORKS = callback;
+        this.writeGattValue("REQ GET_WIFI_NETWORKS");
+    }
+    async connect_wifi(ssid, password, callback){
+        this.m_callback.CONNECT_WIFI = callback;
+        this.writeGattValue(`REQ CONNECT_WIFI ${ssid} ${password}`);
     }
 }
 
