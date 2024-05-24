@@ -137,36 +137,39 @@ var create_plugin = (function() {
 			event_handler : function(sender, event) {
 			},
             connect_wifi : () => {
-                m_pserver_ble.get_wifi_networks((list) => {
-                    var dialog = document.getElementById('wifi-dialog');
-                    if (dialog) {
-                        dialog.show();
-                    } else {
+                m_pserver_ble.get_ssid((current_ssid) => {
+                    m_pserver_ble.get_wifi_networks((list) => {
                         ons.createElement('wifi-dialog.html', { append: true })
                         .then(function (dialog) {
 
                             const ssidSelect = $("#ssid-select")[0];
                             list.forEach(ssid => {
-                                ssidSelect.options.add(new Option(ssid, ssid));
+                                const selected = (ssid == current_ssid);
+                                ssidSelect.options.add(new Option(ssid, ssid, selected, selected));
                             });
 
                             $("#connect-btn").click(function() {
                                 const ssid = $("#ssid-select").val();
                                 const password = $("#password").val();
 
-                                m_pserver_ble.connect_wifi(ssid, password, () => {
-                                    $("#wifi-dialog")[0].hide();
+                                m_pserver_ble.connect_wifi(ssid, password, (result) => {
+                                    if(result == "SUCCEEDED"){
+                                        alert("Wifi Connection Succeeded!");
+                                    }else{
+                                        alert("Wifi Connection Failed!");
+                                    }
+                                    $("#wifi-dialog")[0].remove();
                                 });
                             });
                         
                             $("#cancel-btn").click(function() {
-                                $("#wifi-dialog")[0].hide();
+                                $("#wifi-dialog")[0].remove();
                             });
 
                             dialog.show();
                         });
-                    }
-               });
+                    });
+                });
             },
             open_pviewer: () => {
                 // create camera
