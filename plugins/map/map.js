@@ -251,9 +251,10 @@ var create_plugin = (function () {
         }
 
         var plugin = {
+            name: "map",
             init_options: function (options) {
                 m_options = options;
-                if(m_options.map && m_options.map.load_html){
+                if(m_options.load_html){
                     m_plugin_host.getFile("plugins/map/map.html", function (
                         chunk_array) {
                         var txt = (new TextDecoder).decode(chunk_array[0]);

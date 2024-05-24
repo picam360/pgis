@@ -34,7 +34,7 @@
           <button id="compass-btn" class="overlay-btn-l helper-btn"></button>
 
           <!-- control buttons -->
-          <button id="wifi-btn" class="overlay-btn-l" style="display: none;"></button>
+          <button id="config-btn" class="overlay-btn-l"></button>
           <button id="view-btn" class="overlay-btn-l"></button>
           <button id="add-btn" class="overlay-btn-l"></button>
           <button id="delete-btn" class="overlay-btn-l"></button>
@@ -73,8 +73,34 @@
         ボタンを押して開始します
       </p>
       <p>
-        <ons-button id="start-dialog-close-btn" onclick="hideDialog('start_dialog')">開始</ons-button>
+        <ons-button id="start-dialog-close-btn">開始</ons-button>
       </p>
     </div>
+  </ons-dialog>
+</ons-template>
+
+<ons-template id="config-dialog.html">
+  <ons-dialog id="config-dialog">
+      <div style="text-align: center; padding: 10px;">
+          <table class="input-table">
+              <tr>
+                  <td class="input-label">Camera URL:</td>
+                  <td><ons-input id="camera-url" modifier="underbar" placeholder="Enter camera URL" float></ons-input></td>
+              </tr>
+              <tr>
+                  <td class="input-label">Connect BLE:</td>
+                  <td>
+                    <button id="ble-btn" class="mode-panel-button"></button>
+                    <button id="wifi-btn" class="mode-panel-button" style="display: none;"></button>
+                    <button id="rtk-btn" class="mode-panel-button" style="display: none;"></button>
+                  </td>
+              </tr>
+          </table>
+          <p>
+              <ons-button id="config-dialog-default-btn">Default</ons-button>
+              <ons-button id="config-dialog-ok-btn">OK</ons-button>
+              <ons-button id="config-dialog-close-btn">Close</ons-button>
+          </p>
+      </div>
   </ons-dialog>
 </ons-template>

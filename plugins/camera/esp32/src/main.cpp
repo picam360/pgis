@@ -16,7 +16,7 @@
 // debug flgs
 
 //ble
-#define BLE_SRV_PSERVER "70333680-7067-0000-0001-000000000001"
+#define BLE_SRV_PSERVER      "70333680-7067-0000-0001-000000000001"
 #define BLE_SRV_PSERVER_C_RX "70333681-7067-0000-0001-000000000001"
 #define BLE_SRV_PSERVER_C_TX "70333682-7067-0000-0001-000000000001"
 static NimBLEServer *_ble_svr = nullptr;
@@ -39,8 +39,9 @@ void startAdvertising() {
   }
   _ble_adv = NimBLEDevice::getAdvertising();
 
+  //only one uuid is valid
   _ble_adv->addServiceUUID(_ble_svc->getUUID());
-  rtk_ble_add_service_uuid(_ble_adv);
+  //rtk_ble_add_service_uuid(_ble_adv);
   
   _ble_adv->start();
 }

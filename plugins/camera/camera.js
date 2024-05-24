@@ -12,6 +12,7 @@ class IBLECamera {
 var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
+    var m_permanent_options = {};
     var m_camera = null;
     var m_pserver_ble = null;
 
@@ -24,38 +25,31 @@ var create_plugin = (function() {
 				m_camera = null;
 			}
 	
-			if (!m_camera && m_options.camera) {
-				let options = null;
-                if(m_options.camera.camera_options){
-                    options = m_options.camera.camera_options[m_options.camera.name];
-                }
-                if(!options){
-                    options = {};
-                }
-				switch (m_options.camera.name){
+			if (!m_camera) {
+				switch (m_options.name){
                 case "pserver":
                     if(oscApi){
-                        if(!options.camera_url){
-                            m_pserver_ble.get_ip((ip) => {
-                                if(!ip || ip == "IP_NOT_FOUND"){
-                                    alert("pserver not found");
-                                    return;
-                                }
-                                options.camera_url = `https://${ip}:9002`;
-                                m_camera = oscApi.create_camera('unspecified', options);
-                            });
-                        }else{
-                            m_camera = oscApi.create_camera('unspecified', options);
-                        }
+                        var options = {
+                            camera_url : m_options.url
+                        };
+                        m_camera = oscApi.create_camera('unspecified', options);
                     }
                     break;
                 case "insta360_ble":
                     if(bleCam_Insta360x3){
+                        let options = {};
+                        if(m_options.camera_options){
+                            options = m_options.camera_options[m_options.name];
+                        }
                         m_camera = new bleCam_Insta360x3(options);
                     }
                     break;
                 case "osc":
                     if(oscApi){
+                        let options = {};
+                        if(m_options.camera_options){
+                            options = m_options.camera_options[m_options.name];
+                        }
                         m_camera = oscApi.create_camera('unspecified', options);
                     }
                     break;
@@ -64,9 +58,16 @@ var create_plugin = (function() {
 		}
 		
 		var plugin = {
+            name : "camera",
 			init_options : function(options) {
+                try{
+                    m_permanent_options = JSON.parse(localStorage.getItem('camera_js_options')) || {};
+                }catch (e){
+                    m_permanent_options = {};
+                }
+                Object.assign(options, m_permanent_options);
 				m_options = options;
-                if(m_options.camera && m_options.camera.load_html){
+                if(m_options && m_options.load_html){
                     m_plugin_host.getFile("plugins/camera/camera.html", function(
                         chunk_array) {
                         var txt = (new TextDecoder).decode(chunk_array[0]);
@@ -75,9 +76,10 @@ var create_plugin = (function() {
                         fn.load('camera.html', () => {		
                             console.log('camera.html loaded');
 
-                            document.getElementById('wifi-btn').addEventListener('click', function () {
-                                plugin.connect_wifi();
+                            document.getElementById('config-btn').addEventListener('click', function () {
+                                plugin.open_config();
                             });
+
 
                             document.getElementById('view-btn').addEventListener('click', function () {
                                 plugin.open_pviewer();
@@ -92,31 +94,6 @@ var create_plugin = (function() {
                             document.getElementById('download-btn').addEventListener('click', function () {
                                 plugin.generate_psf();
                             });
-
-                            if(!window.rtk){
-                                let set_onclick = () => {
-                                    let btn = document.getElementById("start-dialog-close-btn");
-                                    btn.onclick = () => {
-                                        var options = {
-                                            device : null,
-                                            server : null,
-                                        };
-                                        m_pserver_ble = new bleCam_Pserver(options);
-                                        m_pserver_ble.start_connect(() => {
-                                            console.log("connect pserver_ble device");
-                                        }, () => {
-                                            console.log("connect pserver_ble server");
-                                            $("#wifi-btn").show();
-                                        });
-                                        document.getElementById('start-dialog').remove();
-                                    };
-                                };
-                                ons.createElement('start-dialog.html', { append: true })
-                                .then(function (dialog) {
-                                    set_onclick();
-                                    dialog.show();
-                                });
-                            }
                         });
                     });
                     m_plugin_host.getFile("plugins/camera/camera.css", function (
@@ -133,12 +110,24 @@ var create_plugin = (function() {
 				pgis.get_point_handler().add_insert_callback((columns, gp) => {
 					columns['filepath'] = gp.filepath;
 				});
-                if(window.rtk){
+			},
+			event_handler : function(sender, event) {
+                if (pgis === sender) {
+                    if (event === "loaded") {
+                        if(m_options.connect_ble){
+                            plugin.connect_ble();
+                        }
+                    }
+                }
+			},
+            connect_ble : () => {
+                var rtk_plugin = m_plugin_host.get_plugin("rtk");
+                if(rtk_plugin){
                     rtk.set_ble_server_connect_options({
                         optionalServices : [ BLE_SRV_PSERVER ],
                         callback : async (ble_device, ble_server) => {
                             m_ble_server = ble_server;
-                            if (m_options.camera.name == "pserver"){
+                            if (m_options.name == "pserver"){
                                 if(!bleCam_Pserver){
                                     alert("pserver_ble.js might not be loaded.");
                                     return;
@@ -152,16 +141,36 @@ var create_plugin = (function() {
                                     console.log("connect pserver_ble device");
                                 }, () => {
                                     console.log("connect pserver_ble server");
-                                    $("#wifi-btn").show();
                                 });
                             }
                         }
                     });
+                    rtk_plugin.start_rtk();
+                }else{
+                    let set_onclick = () => {
+                        let btn = document.getElementById("start-dialog-close-btn");
+                        btn.onclick = () => {
+                            var options = {
+                                device : null,
+                                server : null,
+                            };
+                            m_pserver_ble = new bleCam_Pserver(options);
+                            m_pserver_ble.start_connect(() => {
+                                console.log("connect pserver_ble device");
+                            }, () => {
+                                console.log("connect pserver_ble server");
+                            });
+                            document.getElementById('start-dialog').remove();
+                        };
+                    };
+                    ons.createElement('start-dialog.html', { append: true })
+                    .then(function (dialog) {
+                        set_onclick();
+                        dialog.show();
+                    });
                 }
-			},
-			event_handler : function(sender, event) {
-			},
-            connect_wifi : () => {
+            },
+            open_wifi_config : () => {
                 m_pserver_ble.get_ssid((current_ssid) => {
                     m_pserver_ble.get_wifi_networks((list) => {
                         ons.createElement('wifi-dialog.html', { append: true })
@@ -194,6 +203,80 @@ var create_plugin = (function() {
                             dialog.show();
                         });
                     });
+                });
+            },
+            open_config : () => {
+                ons.createElement('config-dialog.html', { append: true })
+                .then(function (dialog) {
+                    $("#config-dialog-default-btn").hide();
+
+                    if(m_options.url){
+                        document.getElementById('camera-url').value = m_options.url;
+                    }
+
+                    var ip_timer = setInterval(() => {
+                        if(m_pserver_ble){
+                            m_pserver_ble.get_ip((ip) => {
+                                if(!ip || ip == "IP_NOT_FOUND"){
+                                    return;
+                                }
+                                document.getElementById('camera-url').value = `https://${ip}:9002`;
+                            });
+                        }
+    
+                    }, 1000);
+
+                    var connect_ble = m_options.connect_ble;
+                    document.getElementById('ble-btn').addEventListener('click', function () {
+                        if(!connect_ble){
+                            connect_ble = true;
+                            if(!m_pserver_ble){
+                                plugin.connect_ble();
+                            }
+                            $("#ble-btn").css('background-color', 'steelblue');
+                        }else{
+                            connect_ble = false;
+                            $("#ble-btn").css('background-color', 'white');
+                        }
+                    });
+
+                    if(m_pserver_ble){
+                        $("#ble-btn").css('background-color', 'steelblue');
+
+                        $("#wifi-btn").show();
+                        
+                        document.getElementById('wifi-btn').addEventListener('click', function () {
+                            plugin.open_wifi_config();
+                        });
+
+                        var rtk_plugin = m_plugin_host.get_plugin("rtk");
+                        if(rtk_plugin){
+                            $("#rtk-btn").show();
+                            
+                            document.getElementById('rtk-btn').addEventListener('click', function () {
+                            });
+                        }
+                    }
+                
+                    $("#config-dialog-ok-btn").click(function() {
+                        m_options.url = document.getElementById('camera-url').value;
+                        m_permanent_options.url = m_options.url;
+
+                        m_options.connect_ble = connect_ble;
+                        m_permanent_options.connect_ble = m_options.connect_ble;
+
+						localStorage.setItem('camera_js_options', JSON.stringify(m_permanent_options));
+
+                        clearInterval(ip_timer);
+                        $("#config-dialog")[0].remove();
+                    });
+                
+                    $("#config-dialog-close-btn").click(function() {
+                        clearInterval(ip_timer);
+                        $("#config-dialog")[0].remove();
+                    });
+
+                    dialog.show();
                 });
             },
             open_pviewer: () => {
@@ -258,7 +341,7 @@ var create_plugin = (function() {
 	
 					// take picture
 					console.log("taking picture");
-					switch (m_options.camera.name) {
+					switch (m_options.name) {
                     case "ble":
                         m_camera.take_picture(take_picture_callback);
                         break;
