@@ -39,7 +39,9 @@ void startAdvertising() {
   }
   _ble_adv = NimBLEDevice::getAdvertising();
 
+  _ble_adv->addServiceUUID(_ble_svc->getUUID());
   rtk_ble_add_service_uuid(_ble_adv);
+  
   _ble_adv->start();
 }
 

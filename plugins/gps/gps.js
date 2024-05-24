@@ -36,7 +36,19 @@ var create_plugin = (function () {
         var plugin = {
             init_options: function (options) {
                 m_options = options;
-
+            },
+            event_handler: function (sender, event) {
+                if (pgis === sender) {
+                    if (event === "loaded") {
+                        const info_box = document.getElementById('status-info-box');
+                        if(info_box){
+                            info_box.style.display = "none";
+                        }
+                        plugin.start_watching();
+                    }
+                }
+            },
+            start_watching: () => {
                 function update_pos_data(position) {
                     console.log("current location", position.coords.latitude, position.coords.longitude);
                     pgis.get_gps_handler().set_current_position(position.coords.latitude, position.coords.longitude);
@@ -47,16 +59,6 @@ var create_plugin = (function () {
                 navigator.geolocation.getCurrentPosition((position) => {
                     update_pos_data(position);
                 });
-            },
-            event_handler: function (sender, event) {
-                if (pgis === sender) {
-                    if (event === "loaded") {
-                        const info_box = document.getElementById('status-info-box');
-                        if(info_box){
-                            info_box.style.display = "none";
-                        }
-                    }
-                }
             },
         };
         return plugin;

@@ -92,6 +92,31 @@ var create_plugin = (function() {
                             document.getElementById('download-btn').addEventListener('click', function () {
                                 plugin.generate_psf();
                             });
+
+                            if(!window.rtk){
+                                let set_onclick = () => {
+                                    let btn = document.getElementById("start-dialog-close-btn");
+                                    btn.onclick = () => {
+                                        var options = {
+                                            device : null,
+                                            server : null,
+                                        };
+                                        m_pserver_ble = new bleCam_Pserver(options);
+                                        m_pserver_ble.start_connect(() => {
+                                            console.log("connect pserver_ble device");
+                                        }, () => {
+                                            console.log("connect pserver_ble server");
+                                            $("#wifi-btn").show();
+                                        });
+                                        document.getElementById('start-dialog').remove();
+                                    };
+                                };
+                                ons.createElement('start-dialog.html', { append: true })
+                                .then(function (dialog) {
+                                    set_onclick();
+                                    dialog.show();
+                                });
+                            }
                         });
                     });
                     m_plugin_host.getFile("plugins/camera/camera.css", function (
@@ -178,9 +203,12 @@ var create_plugin = (function() {
                     console.log("no camera");
                     return;
                 }
+                var pviewer_url = "https://picam360.github.io/pviewer";
 
-                //var pviewer_url = "https://picam360.github.io/pviewer";
-                var pviewer_url = "https://localhost/pviewer";
+                const params = new URLSearchParams(window.location.search);
+                if(params.has('pviewer')){
+                    pviewer_url = params.get('pviewer');
+                }
 
                 var features = pgis.get_map_handler().get_selected_points();
                 if(features && features.length > 0){
