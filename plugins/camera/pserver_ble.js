@@ -73,8 +73,7 @@ const bleCam_Pserver = class extends IBLECamera {
             this._ble_c_camtx.startNotifications().then(_ => {
                 this._ble_c_camtx.addEventListener('characteristicvaluechanged', this.readCharacteristicValue);
 
-                var step = 0;
-                setInterval(async () => {
+                var request_status = (step) => {
                     switch(step%2){
                     case 0:
                         this.writeGattValue("REQ GET_IP");
@@ -83,8 +82,11 @@ const bleCam_Pserver = class extends IBLECamera {
                         this.writeGattValue("REQ GET_SSID");
                         break;
                     }
-                    step++;
-                }, 5000);
+                    setTimeout(() => {
+                        request_status(step + 1);
+                    }, (step <= 0 ? 1000 : 5000));
+                }
+                request_status(0);
             });
 
             if (this._on_server_connected) {
