@@ -227,6 +227,7 @@ var create_plugin = (function() {
                     }, 1000);
 
                     var connect_ble = m_options.connect_ble;
+                    $("#ble-btn").css('background-color', (connect_ble ? 'steelblue' : 'white'));
                     document.getElementById('ble-btn').addEventListener('click', function () {
                         if(!connect_ble){
                             connect_ble = true;
@@ -241,8 +242,6 @@ var create_plugin = (function() {
                     });
 
                     if(m_pserver_ble){
-                        $("#ble-btn").css('background-color', 'steelblue');
-
                         $("#wifi-btn").show();
                         
                         document.getElementById('wifi-btn').addEventListener('click', function () {
