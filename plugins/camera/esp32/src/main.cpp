@@ -109,6 +109,8 @@ void setup() {
   start_use_NVS();
   g_settings = new RoverSettings();
   g_settings->Load();
+  
+  USBSerial.printf("BLE Device Name : %s\n", g_settings->Ssid.c_str());
 
   NimBLEDevice::init(g_settings->Ssid.begin());
   dbgPrintf(false, "ble addr: %s\n",

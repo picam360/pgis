@@ -37,12 +37,17 @@ const bleCam_Pserver = class extends IBLECamera {
     async connectToDevice() {
         try {
             if(!this._ble_dev){
-                this._ble_dev = await navigator.bluetooth.requestDevice({
-                    //acceptAllDevices: true,
-                    filters: [{
-                        services: [BLE_SRV_PSERVER]
-                    }],
-                });
+                var options = {
+                    optionalServices : []
+                };
+                options.optionalServices.push(BLE_SRV_PSERVER);
+                const params = new URLSearchParams(window.location.search);
+                if(params.has('disable-ble-filter')){
+                    options.acceptAllDevices = true;
+                }else{
+                    options.filters = [{ namePrefix: "PBD" }];
+                }
+                this._ble_dev = await navigator.bluetooth.requestDevice(options);
                 console.log("Found device: " + this._ble_dev.name);
                 this._ble_dev.addEventListener('gattserverdisconnected', (event) => {
                     const device = event.target;

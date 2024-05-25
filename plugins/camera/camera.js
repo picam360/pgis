@@ -252,8 +252,10 @@ var create_plugin = (function() {
                         var rtk_plugin = m_plugin_host.get_plugin("rtk");
                         if(rtk_plugin){
                             $("#rtk-btn").show();
-                            
+                        
                             document.getElementById('rtk-btn').addEventListener('click', function () {
+                                $("#config-dialog")[0].remove();
+                                rtk_plugin.open_base_setting_config_page();
                             });
                         }
                     }
