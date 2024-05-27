@@ -213,11 +213,16 @@ var create_plugin = (function() {
                     if(m_options.url){
                         document.getElementById('camera-url').value = m_options.url;
                     }
+                    
+                    function isValidIPAddress(ip) {
+                        const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$/;
+                        return ipv4Regex.test(ip);
+                    }
 
                     var ip_timer = setInterval(() => {
                         if(m_pserver_ble){
                             m_pserver_ble.get_ip((ip) => {
-                                if(!ip || ip == "IP_NOT_FOUND"){
+                                if(!isValidIPAddress(ip)){
                                     return;
                                 }
                                 document.getElementById('camera-url').value = `https://${ip}:9002`;
@@ -242,10 +247,15 @@ var create_plugin = (function() {
                     });
 
                     if(m_pserver_ble){
-                        $("#wifi-btn").show();
-                        
-                        document.getElementById('wifi-btn').addEventListener('click', function () {
-                            plugin.open_wifi_config();
+                        m_pserver_ble.get_ip((ip) => {
+                            if(ip.startsWith("ERROR_NO_RESPONSE")){
+                                return;
+                            }
+                            $("#wifi-btn").show();
+                            
+                            document.getElementById('wifi-btn').addEventListener('click', function () {
+                                plugin.open_wifi_config();
+                            });
                         });
 
                         var rtk_plugin = m_plugin_host.get_plugin("rtk");

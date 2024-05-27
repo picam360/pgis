@@ -19,8 +19,8 @@ const bleCam_Pserver = class extends IBLECamera {
 
         this.m_callback = {};
         this.m_is_abend = false;
-        this.m_ip_address = "";
-        this.m_ssid = "";
+        this.m_ip_address = "ERROR_NO_RESPONSE";
+        this.m_ssid = "ERROR_NO_RESPONSE";
     }
     start_connect = (on_device_connected, on_server_connected) => {
         this._on_device_connected = on_device_connected;

@@ -327,6 +327,17 @@ var create_plugin = (function () {
 
                     m_position_layer.refresh(lat, lng);
                 });
+
+                document.getElementById('compass-btn').addEventListener('click', function () {
+                    const gp = pgis.get_gps_handler().get_current_position();
+                    if(gp){
+                        var userLocation = ol.proj.fromLonLat([gp.longitude, gp.latitude]);
+                        m_map.getView().animate({
+                            center: userLocation,
+                        });
+                        first_call = false;
+                    }
+                });
             }
         };
         return plugin;

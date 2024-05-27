@@ -28,8 +28,8 @@ static SemaphoreHandle_t _sem_var_access;
 
 static int _loop_count = 0;
 static std::vector<uint8_t> _read_line;
-static std::string _ssid;
-static std::string _ip_address;
+static std::string _ssid = "ERROR_NO_RESPONSE";
+static std::string _ip_address = "ERROR_NO_RESPONSE";
 
 /** >>>> BLE */
 
