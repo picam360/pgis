@@ -30,6 +30,7 @@ static int _loop_count = 0;
 static std::vector<uint8_t> _read_line;
 static std::string _ssid = "ERROR_NO_RESPONSE";
 static std::string _ip_address = "ERROR_NO_RESPONSE";
+static std::string _ntrip_data = "ERROR_NO_RESPONSE";
 
 /** >>>> BLE */
 
@@ -175,6 +176,9 @@ void loop() {
         _ip_address = (char*)(_read_line.data() + 11);
       }else if (strncmp((char*)_read_line.data(), "RES GET_SSID ", 13) == 0){
         _ssid = (char*)(_read_line.data() + 13);
+      }else if (strncmp((char*)_read_line.data(), "RES GET_NTRIP_DATA ", 19) == 0){
+        _ntrip_data = (char*)(_read_line.data() + 19);
+        rtk_push_ntrip_data((uint8_t*)_ntrip_data.c_str(), _ntrip_data.size());
       }else{
         write_camtx((char*)_read_line.data());
       }
