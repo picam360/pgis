@@ -31,6 +31,9 @@ static std::vector<uint8_t> _read_line;
 static std::string _ssid = "ERROR_NO_RESPONSE";
 static std::string _ip_address = "ERROR_NO_RESPONSE";
 
+static unsigned long last_status_msec = 0;
+static long status_interval_msec = 1000;
+
 /** >>>> BLE */
 
 void startAdvertising()
@@ -170,10 +173,22 @@ void loop()
 
     M5.Lcd.setCursor(0, 38);                           // カーソル座標指定
     M5.Lcd.setTextColor(CYAN, BLACK);                  // 文字色
-    M5.Lcd.printf("LAT: %s\n", rtk_get_latitude());    //
-    M5.Lcd.printf("LNG: %s\n", rtk_get_longitude());   //
-    M5.Lcd.printf("FIX: %s\n", rtk_get_fix_quality()); //
+    M5.Lcd.printf("LAT:%s\n", rtk_get_latitude());    //
+    M5.Lcd.printf("LON:%s\n", rtk_get_longitude());   //
+    M5.Lcd.printf("FIX:%s\n", rtk_get_fix_quality()); //
 #endif
+
+    unsigned long msec = millis(); 
+    if (msec - last_status_msec >= status_interval_msec)
+    {
+        last_status_msec = msec;
+        
+        char status[512];
+        snprintf(status, sizeof(status),
+            "REQ SET_STAT {\"LAT\":%s,\"LON\":%s,\"FIX\":%s}",
+            rtk_get_latitude(), rtk_get_longitude(), rtk_get_fix_quality());
+        USBSerial.println(status);
+    }
     if ((_loop_count % 500) == 0)
     {
         int step = (_loop_count / 500) % 3;
@@ -208,9 +223,14 @@ void loop()
             {
                 uint8_t *data = _read_line.data() + 13;
                 int len = _read_line.size() - 13;
-                if(len > 0){
+                if (len > 0)
+                {
                     rtk_push_rtcm(data, len);
                 }
+            }
+            else if (strncmp((char *)_read_line.data(), "RES SET_STAT ", 15) == 0)
+            {
+                //TODO : handle configure
             }
             else
             {
