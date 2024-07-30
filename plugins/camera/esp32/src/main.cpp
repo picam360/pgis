@@ -121,6 +121,7 @@ void setup()
 #endif
 
     USBSerial.begin(115200);
+    USBSerial.setRxBufferSize(4096);//for big rtcm data
 
     // semaphore
     _sem_var_access = xSemaphoreCreateMutex();
@@ -191,7 +192,7 @@ void loop()
     }
     if ((_loop_count % 500) == 0)
     {
-        int step = (_loop_count / 500) % 3;
+        int step = (_loop_count / 500) % 2;
         switch (step)
         {
         case 0:
@@ -199,9 +200,6 @@ void loop()
             break;
         case 1:
             USBSerial.println("REQ GET_SSID");
-            break;
-        case 2:
-            USBSerial.println("REQ GET_RTCM");
             break;
         }
     }
