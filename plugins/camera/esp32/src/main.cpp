@@ -7,6 +7,7 @@
 #include "tools.h"
 #include "rover_settings.h"
 #include "rtk.h"
+#include "nmea_gga.h"
 
 #define TARGET_DEVICE_ATOMS3
 #ifdef TARGET_DEVICE_ATOMS3
@@ -30,6 +31,7 @@ static int _loop_count = 0;
 static std::vector<uint8_t> _read_line;
 static std::string _ssid = "ERROR_NO_RESPONSE";
 static std::string _ip_address = "ERROR_NO_RESPONSE";
+static NMEA_GGA _nmea_gga;
 
 static unsigned long last_status_msec = 0;
 static long status_interval_msec = 1000;
@@ -174,20 +176,21 @@ void loop()
 
     M5.Lcd.setCursor(0, 38);                           // カーソル座標指定
     M5.Lcd.setTextColor(CYAN, BLACK);                  // 文字色
-    M5.Lcd.printf("LAT:%s\n", rtk_get_latitude());    //
-    M5.Lcd.printf("LON:%s\n", rtk_get_longitude());   //
-    M5.Lcd.printf("FIX:%s\n", rtk_get_fix_quality()); //
-    M5.Lcd.printf("HDOP:%s\n", rtk_get_hdop());        //
+    M5.Lcd.printf("LAT:%s\n", _nmea_gga.latitude.c_str());    //
+    M5.Lcd.printf("LON:%s\n", _nmea_gga.longitude.c_str());   //
+    M5.Lcd.printf("FIX:%s\n", _nmea_gga.fix_quality.c_str()); //
+    M5.Lcd.printf("HDOP:%s\n", _nmea_gga.horizontal_dilution.c_str());        //
+    M5.Lcd.printf("N_S:%s\n", _nmea_gga.num_satellites.c_str());        //
 #endif
 
     unsigned long msec = millis(); 
     if (msec - last_status_msec >= status_interval_msec)
     {
         last_status_msec = msec;
+
+        _nmea_gga = NMEA_GGA(rtk_get_nmea());
         
-        USBSerial.printf(
-            "REQ SET_STAT {\"LAT\":%s,\"LON\":%s,\"FIX\":%s,\"HDOP\":%s}\n",
-            rtk_get_latitude(), rtk_get_longitude(), rtk_get_fix_quality(), rtk_get_hdop());
+        USBSerial.printf("REQ SET_NMEA %s\n", _nmea_gga.sentence.c_str());
     }
     if ((_loop_count % 500) == 0)
     {
