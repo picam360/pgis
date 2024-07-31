@@ -169,7 +169,7 @@ void loop()
     M5.Lcd.setCursor(0, 0);                            // カーソル座標指定
     M5.Lcd.printf("SSID: %.10s\n", _ssid.c_str());     // アクセスポイント時のSSID表示
     M5.Lcd.setTextColor(ORANGE, BLACK);                // 文字色
-    M5.Lcd.printf("IP: %.10s\n", _ip_address.c_str()); // IPアドレス表示
+    M5.Lcd.printf("IP: %.12s\n", _ip_address.c_str()); // IPアドレス表示
     M5.Lcd.drawFastHLine(0, 34, 128, WHITE);           // 指定座標から横線
 
     M5.Lcd.setCursor(0, 38);                           // カーソル座標指定
@@ -177,6 +177,7 @@ void loop()
     M5.Lcd.printf("LAT:%s\n", rtk_get_latitude());    //
     M5.Lcd.printf("LON:%s\n", rtk_get_longitude());   //
     M5.Lcd.printf("FIX:%s\n", rtk_get_fix_quality()); //
+    M5.Lcd.printf("HDOP:%s\n", rtk_get_hdop());        //
 #endif
 
     unsigned long msec = millis(); 
@@ -186,8 +187,8 @@ void loop()
         
         char status[512];
         snprintf(status, sizeof(status),
-            "REQ SET_STAT {\"LAT\":%s,\"LON\":%s,\"FIX\":%s}",
-            rtk_get_latitude(), rtk_get_longitude(), rtk_get_fix_quality());
+            "REQ SET_STAT {\"LAT\":%s,\"LON\":%s,\"FIX\":%s,\"HDOP\":%s}",
+            rtk_get_latitude(), rtk_get_longitude(), rtk_get_hdop());
         USBSerial.println(status);
     }
     if ((_loop_count % 500) == 0)
