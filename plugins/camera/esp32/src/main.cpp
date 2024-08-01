@@ -27,12 +27,12 @@ static NimBLECharacteristic *_ble_c_rx = nullptr;
 static NimBLECharacteristic *_ble_c_tx = nullptr;
 static SemaphoreHandle_t _sem_var_access;
 
-static int _loop_count = 0;
 static std::vector<uint8_t> _read_line;
 static std::string _ssid = "ERROR_NO_RESPONSE";
 static std::string _ip_address = "ERROR_NO_RESPONSE";
 static NMEA_GGA _nmea_gga;
 
+static int status_loop_count = 0;
 static unsigned long last_status_msec = 0;
 static long status_interval_msec = 100;
 
@@ -75,7 +75,7 @@ static void write_camtx(std::string str)
             _ble_c_tx->setValue(str);
             _ble_c_tx->notify();
 
-            USBSerial.printf("BLE_CAMTX %s\n", str.c_str());
+            USBSerial.printf("DBG : BLE_CAMTX %s\n", str.c_str());
 
             xSemaphoreGive(_sem_var_access);
         }
@@ -99,7 +99,7 @@ class BleChCamRx : public NimBLECharacteristicCallbacks
         }
         else
         { // relay
-            USBSerial.println(rxData.c_str());
+            USBSerial.printf("CAMRX %s\n", rxData.c_str());
         }
     }
 };
@@ -179,8 +179,6 @@ void loop()
 {
     unsigned long msec = millis(); 
 
-    _loop_count++;
-
     rtk_loop();
 
     if (msec - last_status_msec >= status_interval_msec)
@@ -208,18 +206,21 @@ void loop()
         _nmea_gga = NMEA_GGA(rtk_get_nmea());
         
         USBSerial.printf("REQ SET_NMEA %s\n", _nmea_gga.sentence.c_str());
-    }
-    if ((_loop_count % 500) == 0)
-    {
-        int step = (_loop_count / 500) % 2;
-        switch (step)
+
+
+        status_loop_count++;
+        if ((status_loop_count % 20) == 0)
         {
-        case 0:
-            USBSerial.println("REQ GET_IP");
-            break;
-        case 1:
-            USBSerial.println("REQ GET_SSID");
-            break;
+            int step = (status_loop_count / 10) % 2;
+            switch (step)
+            {
+            case 0:
+                USBSerial.println("REQ GET_IP");
+                break;
+            case 1:
+                USBSerial.println("REQ GET_SSID");
+                break;
+            }
         }
     }
     while (USBSerial.available() > 0)
@@ -245,13 +246,13 @@ void loop()
                     rtk_push_rtcm(data, len);
                 }
             }
-            else if (strncmp((char *)_read_line.data(), "RES SET_STAT ", 15) == 0)
+            else if (strncmp((char *)_read_line.data(), "RES SET_NMEA ", 13) == 0)
             {
-                //TODO : handle configure
+                //do nothing
             }
-            else
+            else if (strncmp((char *)_read_line.data(), "CAMTX ", 6) == 0)
             {
-                write_camtx((char *)_read_line.data());
+                write_camtx((char *)_read_line.data() + 6);
             }
             // if (_read_line.size() > 50) {
             //   _read_line.resize(50);
