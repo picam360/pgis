@@ -172,6 +172,29 @@ void LCD_printf(char *format, ...) {
     M5.Lcd.fillRect(x, y, w, h, BLACK);
 }
 
+double degreesToRadians(double degrees) {
+    return degrees * M_PI / 180.0;
+}
+
+double distanceInMeters(double lat1, double lon1, double lat2, double lon2) {
+    const double EARTH_RADIUS = 6378137.0; // meters
+
+    double latRad1 = degreesToRadians(lat1);
+    double lonRad1 = degreesToRadians(lon1);
+    double latRad2 = degreesToRadians(lat2);
+    double lonRad2 = degreesToRadians(lon2);
+
+    double dLat = latRad2 - latRad1;
+    double dLon = lonRad2 - lonRad1;
+
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+               cos(latRad1) * cos(latRad2) *
+               sin(dLon / 2) * sin(dLon / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return EARTH_RADIUS * c;
+}
+
 /********************
  * loop
  */
@@ -186,18 +209,73 @@ void loop()
         last_status_msec = msec;
 
 #ifdef TARGET_DEVICE_ATOMS3
+        const double update_gain = 0.05;
+        static double mean_lat = 0.0;
+        static double mean_lon = 0.0;
+        static double mean_dist2_m = 0.0;
+
+        double lat = _nmea_gga.latitude.toDouble();
+        double lon = _nmea_gga.longitude.toDouble();
+        if(lat != 0 && lon != 0){
+            if(mean_lat == 0.0){
+                mean_lat = lat;
+            }else{
+                mean_lat = mean_lat*(1.0 - update_gain) + lat*update_gain;
+            }
+            if(mean_lon == 0.0){
+                mean_lon = lon;
+            }else{
+                mean_lon = mean_lon*(1.0 - update_gain) + lon*update_gain;
+            }
+
+            double dist_m = distanceInMeters(lat, lon, mean_lat, mean_lon);
+            if(mean_dist2_m == 0.0){
+                mean_dist2_m = dist_m*dist_m;
+            }else{
+                mean_dist2_m = mean_dist2_m*(1.0 - update_gain) + dist_m*dist_m*update_gain;
+            }
+        }
+
+
+        static int display_mode = 0;
+        static bool button_state = false;
+
+        M5.update();
+
+        if (M5.BtnA.wasPressed()) {
+            button_state = true;
+        } else if (M5.BtnA.wasReleased()) {
+            if(button_state){
+                display_mode++;
+            }
+            button_state = false;
+        }
+
         M5.Lcd.setTextColor(WHITE, BLACK);                 // 文字色
         M5.Lcd.setTextFont(2);                             // フォント
         M5.Lcd.setCursor(0, 0);                            // カーソル座標指定
-        LCD_printf("SSID:%.11s\n", _ssid.c_str());     // アクセスポイント時のSSID表示
+        LCD_printf("SSID:%.11s\n", _ssid.c_str());         // アクセスポイント時のSSID表示
         M5.Lcd.setTextColor(ORANGE, BLACK);                // 文字色
-        LCD_printf("IP:%.13s\n", _ip_address.c_str()); // IPアドレス表示
+        LCD_printf("IP:%.13s\n", _ip_address.c_str());     // IPアドレス表示
         M5.Lcd.drawFastHLine(0, 34, 128, WHITE);           // 指定座標から横線
 
         M5.Lcd.setCursor(0, 38);                           // カーソル座標指定
         M5.Lcd.setTextColor(CYAN, BLACK);                  // 文字色
-        LCD_printf("LAT:%s\n", _nmea_gga.latitude.c_str());    //
-        LCD_printf("LON:%s\n", _nmea_gga.longitude.c_str());   //
+        switch(display_mode%3){
+        case 2:
+            LCD_printf("POS_STD:%0.3lfm\n", sqrt(mean_dist2_m));   //
+            LCD_printf("*****\n");
+            break;
+        case 1:
+            LCD_printf("MY:%0.7lf\n", mean_lat);   //
+            LCD_printf("MX:%0.7lf\n", mean_lon);   //
+            break;
+        case 0:
+        default:
+            LCD_printf("LAT:%s\n", _nmea_gga.latitude.c_str());    //
+            LCD_printf("LON:%s\n", _nmea_gga.longitude.c_str());   //
+            break;
+        }
         LCD_printf("FIX:%s\n", _nmea_gga.fix_quality.c_str()); //
         LCD_printf("HDOP:%s\n", _nmea_gga.horizontal_dilution.c_str());        //
         LCD_printf("N_S:%s\n", _nmea_gga.num_satellites.c_str());        //
