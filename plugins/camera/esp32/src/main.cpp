@@ -34,7 +34,7 @@ static std::string _ip_address = "ERROR_NO_RESPONSE";
 static NMEA_GGA _nmea_gga;
 
 static unsigned long last_status_msec = 0;
-static long status_interval_msec = 1000;
+static long status_interval_msec = 100;
 
 /** >>>> BLE */
 
@@ -118,7 +118,7 @@ void setup()
     auto cfg = M5.config();
     M5.begin(cfg);            // AtomS3初期設定（LCD,UART,I2C,LED）
     M5.Lcd.begin();           // 画面初期化
-    M5.Lcd.setRotation(2);    // 画面向き設定（USB位置基準 0：上/ 1：左/ 2：下/ 3：右）
+    M5.Lcd.setRotation(1);    // 画面向き設定（USB位置基準 0：上/ 1：左/ 2：下/ 3：右）
     M5.Lcd.fillScreen(BLACK); // 背景
 #endif
 
@@ -156,37 +156,54 @@ void setup()
     startAdvertising();
 }
 
+void LCD_printf(char *format, ...) {
+    char buff[32];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buff, 32, format, args);
+    va_end(args);
+
+    int x = M5.Lcd.textWidth(buff);
+    int y = M5.Lcd.getCursorY();
+    int w = 128 - x;
+    int h = M5.Lcd.fontHeight();
+  
+    M5.Lcd.printf(buff);
+    M5.Lcd.fillRect(x, y, w, h, BLACK);
+}
+
 /********************
  * loop
  */
 void loop()
 {
+    unsigned long msec = millis(); 
+
     _loop_count++;
 
     rtk_loop();
 
-#ifdef TARGET_DEVICE_ATOMS3
-    M5.Lcd.setTextColor(WHITE, BLACK);                 // 文字色
-    M5.Lcd.setTextFont(2);                             // フォント
-    M5.Lcd.setCursor(0, 0);                            // カーソル座標指定
-    M5.Lcd.printf("SSID:%.11s\n", _ssid.c_str());     // アクセスポイント時のSSID表示
-    M5.Lcd.setTextColor(ORANGE, BLACK);                // 文字色
-    M5.Lcd.printf("IP:%.13s\n", _ip_address.c_str()); // IPアドレス表示
-    M5.Lcd.drawFastHLine(0, 34, 128, WHITE);           // 指定座標から横線
-
-    M5.Lcd.setCursor(0, 38);                           // カーソル座標指定
-    M5.Lcd.setTextColor(CYAN, BLACK);                  // 文字色
-    M5.Lcd.printf("LAT:%s\n", _nmea_gga.latitude.c_str());    //
-    M5.Lcd.printf("LON:%s\n", _nmea_gga.longitude.c_str());   //
-    M5.Lcd.printf("FIX:%s\n", _nmea_gga.fix_quality.c_str()); //
-    M5.Lcd.printf("HDOP:%s\n", _nmea_gga.horizontal_dilution.c_str());        //
-    M5.Lcd.printf("N_S:%s\n", _nmea_gga.num_satellites.c_str());        //
-#endif
-
-    unsigned long msec = millis(); 
     if (msec - last_status_msec >= status_interval_msec)
     {
         last_status_msec = msec;
+
+#ifdef TARGET_DEVICE_ATOMS3
+        M5.Lcd.setTextColor(WHITE, BLACK);                 // 文字色
+        M5.Lcd.setTextFont(2);                             // フォント
+        M5.Lcd.setCursor(0, 0);                            // カーソル座標指定
+        LCD_printf("SSID:%.11s\n", _ssid.c_str());     // アクセスポイント時のSSID表示
+        M5.Lcd.setTextColor(ORANGE, BLACK);                // 文字色
+        LCD_printf("IP:%.13s\n", _ip_address.c_str()); // IPアドレス表示
+        M5.Lcd.drawFastHLine(0, 34, 128, WHITE);           // 指定座標から横線
+
+        M5.Lcd.setCursor(0, 38);                           // カーソル座標指定
+        M5.Lcd.setTextColor(CYAN, BLACK);                  // 文字色
+        LCD_printf("LAT:%s\n", _nmea_gga.latitude.c_str());    //
+        LCD_printf("LON:%s\n", _nmea_gga.longitude.c_str());   //
+        LCD_printf("FIX:%s\n", _nmea_gga.fix_quality.c_str()); //
+        LCD_printf("HDOP:%s\n", _nmea_gga.horizontal_dilution.c_str());        //
+        LCD_printf("N_S:%s\n", _nmea_gga.num_satellites.c_str());        //
+#endif
 
         _nmea_gga = NMEA_GGA(rtk_get_nmea());
         
