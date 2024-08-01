@@ -209,9 +209,10 @@ void loop()
 
 
         status_loop_count++;
-        if ((status_loop_count % 20) == 0)
+        int step_count = 20;
+        if ((status_loop_count % step_count) == 0)
         {
-            int step = (status_loop_count / 10) % 2;
+            int step = (status_loop_count / step_count) % 2;
             switch (step)
             {
             case 0:
