@@ -247,6 +247,8 @@ void loop()
         } else if (M5.BtnA.wasReleased()) {
             if(button_state){
                 display_mode++;
+                
+                M5.Lcd.fillScreen(BLACK); // 背景
             }
             button_state = false;
         }
