@@ -183,9 +183,6 @@ var create_plugin = (function () {
         }
 
         m_map_handler = {
-            _tile_layer: new ol.layer.Tile({
-                source: new ol.source.OSM()
-            }),
             set_tile_layer: (layer) => {
                 m_map_handler._tile_layer = layer;
             },
@@ -253,7 +250,20 @@ var create_plugin = (function () {
         var plugin = {
             name: "map",
             init_options: function (options) {
-                m_options = options;
+                m_options = options || {};
+                if(m_options.tileserver_style){
+                    m_map_handler._tile_layer = 
+                        new MapLibreLayer({
+                            opacity: 0.7,
+                            maplibreOptions: {
+                                style: m_options.tileserver_style,
+                            },
+                        });
+                }else{
+                    m_map_handler._tile_layer = new ol.layer.Tile({
+                        source: new ol.source.OSM()
+                    });
+                }
                 if(m_options.load_html){
                     m_plugin_host.getFile("plugins/map/map.html", function (
                         chunk_array) {
