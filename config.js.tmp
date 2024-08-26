@@ -1,7 +1,7 @@
 var pgis_conf = {
 	"plugin_paths" : [
 		"plugins/map/map.js",
-		"plugins/rtk/rtk.js",
+//		"plugins/rtk/rtk.js",
 //		"plugins/gps/gps.js",
 		"plugins/camera/camera.js",
 		"plugins/camera/osc.js",
