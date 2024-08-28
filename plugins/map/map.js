@@ -56,14 +56,17 @@ var create_plugin = (function () {
             this.m_map.addLayer(this.m_layer);
         }
         refresh(lat, lng) {
-            var vec_src = this.m_layer.getSource();
-            vec_src.clear();
-
-            let f = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([lng, lat]))
-            });
-            f.setStyle(this.m_style_attch);
-            vec_src.addFeature(f);
+            const vec_src = this.m_layer.getSource();
+            const features = vec_src.getFeatures();
+            if(features.length == 0){
+                let f = new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([lng, lat]))
+                });
+                f.setStyle(this.m_style_attch);
+                vec_src.addFeature(f);
+            }else{
+                features[0].setGeometry(new ol.geom.Point(ol.proj.fromLonLat([lng, lat])));
+            }
         }
     }
 
