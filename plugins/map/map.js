@@ -46,12 +46,12 @@ var create_plugin = (function () {
                         width: 6, // 縁取りの幅を設定
                     }),
                 }),
-                zIndex: 1
+                zIndex: this.m_z_idx,
             });
             this.m_layer = new ol.layer.Vector({
                 source: new ol.source.Vector(),
                 zIndex: this.m_z_idx,
-                style: this.m_style_std
+                style: this.m_style_std,
             });
             this.m_map.addLayer(this.m_layer);
         }
@@ -297,15 +297,22 @@ var create_plugin = (function () {
             },
             start_map: () => {
 
-                var map = new ol.Map({
-                    target: 'mapid',
-                    layers: [
-                        m_map_handler._tile_layer
-                    ],
-                    view: new ol.View({
-                        center: ol.proj.fromLonLat([0, 0]),
-                        zoom: 2
-                    })
+                var map = 
+                // new ol.Map({
+                //     target: 'mapid',
+                //     layers: [
+                //         m_map_handler._tile_layer
+                //     ],
+                //     view: new ol.View({
+                //         center: ol.proj.fromLonLat([0, 0]),
+                //         zoom: 2
+                //     })
+                // });
+                new maplibregl.Map({
+                    container: 'mapid', // 地図を表示するコンテナのID
+                    style: m_options.tileserver_style,
+                    center: [0, 0],
+                    zoom: 2,
                 });
         
                 map.addControl(new ol.control.ScaleLine());
@@ -316,14 +323,14 @@ var create_plugin = (function () {
         
                 m_map = map;
 
-                m_position_layer = new PositionLayer(m_map, 400);
-                m_point_layer = new PointLayer(m_map, 200);
-                m_point_layer.add_click_callback((event_data, feature) => {
-                    m_selected_points = [];
-                    if(feature){
-                        m_selected_points.push(feature);
-                    }
-                });
+                // m_position_layer = new PositionLayer(m_map, 400);
+                // m_point_layer = new PointLayer(m_map, 200);
+                // m_point_layer.add_click_callback((event_data, feature) => {
+                //     m_selected_points = [];
+                //     if(feature){
+                //         m_selected_points.push(feature);
+                //     }
+                // });
 
 
                 var first_call = true;
