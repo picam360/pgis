@@ -254,14 +254,23 @@ var create_plugin = (function () {
             name: "map",
             init_options: function (options) {
                 m_options = options || {};
-                if(m_options.tileserver_style){
-                    m_map_handler._tile_layer = 
-                        new MapLibreLayer({
-                            opacity: 0.7,
-                            maplibreOptions: {
-                                style: m_options.tileserver_style,
-                            },
+                if(m_options.tileserver_url){
+                    if(m_options.tileserver_url.endsWith('.png')){
+                        m_map_handler._tile_layer = new ol.layer.Tile({
+                            source: new ol.source.XYZ({
+                                url: m_options.tileserver_url,
+                                tileSize: 256
+                            })
                         });
+                    }else{
+                        m_map_handler._tile_layer = 
+                            new MapLibreLayer({
+                                opacity: 0.7,
+                                maplibreOptions: {
+                                    style: m_options.tileserver_url,
+                                },
+                            });
+                    }
                 }else{
                     m_map_handler._tile_layer = new ol.layer.Tile({
                         source: new ol.source.OSM()
@@ -297,22 +306,15 @@ var create_plugin = (function () {
             },
             start_map: () => {
 
-                var map = 
-                // new ol.Map({
-                //     target: 'mapid',
-                //     layers: [
-                //         m_map_handler._tile_layer
-                //     ],
-                //     view: new ol.View({
-                //         center: ol.proj.fromLonLat([0, 0]),
-                //         zoom: 2
-                //     })
-                // });
-                new maplibregl.Map({
-                    container: 'mapid', // 地図を表示するコンテナのID
-                    style: m_options.tileserver_style,
-                    center: [0, 0],
-                    zoom: 2,
+                var map = new ol.Map({
+                    target: 'mapid',
+                    layers: [
+                        m_map_handler._tile_layer
+                    ],
+                    view: new ol.View({
+                        center: ol.proj.fromLonLat([0, 0]),
+                        zoom: 2
+                    })
                 });
         
                 map.addControl(new ol.control.ScaleLine());
@@ -323,14 +325,14 @@ var create_plugin = (function () {
         
                 m_map = map;
 
-                // m_position_layer = new PositionLayer(m_map, 400);
-                // m_point_layer = new PointLayer(m_map, 200);
-                // m_point_layer.add_click_callback((event_data, feature) => {
-                //     m_selected_points = [];
-                //     if(feature){
-                //         m_selected_points.push(feature);
-                //     }
-                // });
+                m_position_layer = new PositionLayer(m_map, 400);
+                m_point_layer = new PointLayer(m_map, 200);
+                m_point_layer.add_click_callback((event_data, feature) => {
+                    m_selected_points = [];
+                    if(feature){
+                        m_selected_points.push(feature);
+                    }
+                });
 
 
                 var first_call = true;
