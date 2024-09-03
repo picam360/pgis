@@ -3,6 +3,20 @@ var create_plugin = (function () {
     var m_options = null;
     var m_drive_path_layer = null;
     var m_selected_points = [];
+    var m_drive_path = {};
+
+    function _convert_DMS_to_deg(input_str) {
+        var dotIndex = input_str.indexOf('.');
+        if (dotIndex !== -1) {
+            var degrees = parseFloat(input_str.slice(0, dotIndex - 2));
+            var minutes = parseFloat(input_str.slice(dotIndex - 2));
+            var deg = degrees + minutes / 60;
+            return deg;
+        } else {
+            return -1;
+        }
+    }
+
 
     class DrivePathLayer {
         constructor(map, z_idx) {
@@ -21,9 +35,9 @@ var create_plugin = (function () {
             this.m_tri_style = new ol.style.Style({
                 image: new ol.style.RegularShape({
                     fill: new ol.style.Fill({
-                        color: 'green'
+                        color: 'yellow'
                     }),
-                    points: 3,
+                    points: 6,
                     radius: 15,
                     angle: Math.PI / 180
                 })
@@ -63,15 +77,16 @@ var create_plugin = (function () {
         refresh() {
             this.m_vector_src.clear();
 
-            let points = pgis.get_point_handler().get_points();
-            let coordinates = new Map();
-            for (let p of points) {
-                const key = `${p.x.toFixed(8)},${p.y.toFixed(8)}`;
-                coordinates.set(key, p);
-            }
-            for (let [key, p] of coordinates) {
+            for (let key in m_drive_path) {
+                const p = m_drive_path[key];
+                if(!p || !p.nmea){
+                    continue;
+                }
+                const ary = p.nmea.split(',');
+                p.lon = _convert_DMS_to_deg(ary[4]);
+                p.lat = _convert_DMS_to_deg(ary[2]);
                 var feature = new ol.Feature({
-                    geometry: new ol.geom.Point(ol.proj.fromLonLat([p.x, p.y]))
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([p.lon, p.lat]))
                 });
                 feature.pgis_point = p;
                 this.m_vector_src.addFeature(feature);
@@ -97,7 +112,7 @@ var create_plugin = (function () {
         }
         set_clicked_style(feature) {
             if (feature) {
-                ; feature.setStyle(this.m_clicked_tri_style)
+                feature.setStyle(this.m_clicked_tri_style)
                 this.m_last_clicked_feature = feature;
             }
         }
@@ -114,78 +129,9 @@ var create_plugin = (function () {
     return function (plugin_host) {
         //debugger;
         m_plugin_host = plugin_host;
-        let menu = document.getElementById("menu");
-        if (menu) {
-            menu.remove();
-        }
-
-        m_map_handler = {
-            set_tile_layer: (layer) => {
-                m_map_handler._tile_layer = layer;
-            },
-            get_tile_layer: (layer) => {
-                return m_map_handler._tile_layer;
-            },
-            get_map: () => {
-                return m_map;
-            },
-            set_map: (map) => {
-                m_map = map;
-            },
-            refresh: () => {
-                m_point_layer.refresh();
-            },
-            get_selected_points:() => {
-                return m_selected_points;
-            },
-        };
-        pgis.set_map_handler(m_map_handler);
-
-        {
-            var m_gps_handler = {
-                _lat : 0,
-                _lng : 0,
-                _set_current_position_callbacks : [],
-                add_set_current_position_callback(callback){
-                    m_gps_handler._set_current_position_callbacks.push(callback);
-                },
-                set_current_position: (lat, lng) => {
-                    m_gps_handler._lat = lat;
-                    m_gps_handler._lng = lng;
-                    for(var callback of m_gps_handler._set_current_position_callbacks){
-                        callback(lat, lng);
-                    }
-                },
-                get_current_position: () => {
-                    return {
-                        x : m_gps_handler._lng,
-                        y : m_gps_handler._lat,
-                        latitude : m_gps_handler._lat,
-                        longitude : m_gps_handler._lng,
-                        timestamp : Date.now(),
-                    };
-                },
-            };
-            pgis.set_gps_handler(m_gps_handler);
-
-            setInterval(() => {
-                if(m_map && pgis.get_gps_handler() == m_gps_handler){
-                    const view = m_map.getView();
-                    const center = view.getCenter();
-                    const centerLonLat = ol.proj.transform(center, 'EPSG:3857', 'EPSG:4326');
-                    if(centerLonLat[0] < 0){
-                        centerLonLat[0] += 360;
-                    }
-                    if(centerLonLat[1] < 0){
-                        centerLonLat[1] += 360;
-                    }
-                    m_gps_handler.set_current_position(centerLonLat[1], centerLonLat[0]);
-                }
-            }, 1000);
-        }
 
         var plugin = {
-            name: "map",
+            name: "auto_drive",
             init_options: function (options) {
                 m_options = options || {};
             },
@@ -199,14 +145,43 @@ var create_plugin = (function () {
                 }
             },
             init_map_layer: () => {
-
-                m_drive_path_layer = new DrivePathLayer(m_map, 200);
+                const map_handler = pgis.get_map_handler();
+                const map = map_handler.get_map();
+                m_drive_path_layer = new DrivePathLayer(map, 500);
                 m_drive_path_layer.add_click_callback((event_data, feature) => {
                     m_selected_points = [];
                     if(feature){
                         m_selected_points.push(feature);
                     }
                 });
+
+				if(m_options.webdis_url){//webdis
+
+					const socket = new WebSocket(m_options.webdis_url);
+
+					socket.onmessage = function(event) {
+						const data = JSON.parse(event.data);
+						if(data["GET"]){
+                            m_drive_path = JSON.parse(data["GET"]);
+                            m_drive_path_layer.refresh();
+						}
+					};
+			
+					socket.onopen = function() {
+						console.log("webdis connection established");
+						if(m_options.drive_path_key){
+							socket.send(JSON.stringify(["GET", m_options.drive_path_key]));
+						}
+					};
+			
+					socket.onclose = function() {
+						console.log("webdis connection closed");
+					};
+			
+					socket.onerror = function(error) {
+						console.log(`Error: ${error.message}`);
+					};
+				}
             }
         };
         return plugin;
