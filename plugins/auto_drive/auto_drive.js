@@ -35,10 +35,10 @@ var create_plugin = (function () {
             this.m_tri_style = new ol.style.Style({
                 image: new ol.style.RegularShape({
                     fill: new ol.style.Fill({
-                        color: 'yellow'
+                        color: 'green'
                     }),
                     points: 6,
-                    radius: 15,
+                    radius: 1,
                     angle: Math.PI / 180
                 })
             });
@@ -48,8 +48,8 @@ var create_plugin = (function () {
                     fill: new ol.style.Fill({
                         color: 'orange'
                     }),
-                    points: 3,
-                    radius: 20,
+                    points: 6,
+                    radius: 3,
                     angle: Math.PI / 180
                 })
             });
@@ -61,13 +61,13 @@ var create_plugin = (function () {
             });
 
             this.m_map.on('click', (evt) => {
-                this._on_click(evt);
+                //this._on_click(evt);
             });
             this.m_map.on('pointermove', (evt) => {
 
-                var pixel = this.m_map.getEventPixel(evt.originalEvent);
-                var hit = this.m_map.hasFeatureAtPixel(pixel);
-                this.m_map.getTargetElement().style.cursor = hit ? 'pointer' : '';
+                // var pixel = this.m_map.getEventPixel(evt.originalEvent);
+                // var hit = this.m_map.hasFeatureAtPixel(pixel);
+                // this.m_map.getTargetElement().style.cursor = hit ? 'pointer' : '';
             });
 
             this.refresh();
@@ -77,20 +77,50 @@ var create_plugin = (function () {
         refresh() {
             this.m_vector_src.clear();
 
+            const points = [];
+
+            const keys = [];
+            const obj = {};
             for (let key in m_drive_path) {
-                const p = m_drive_path[key];
+                const value = parseFloat(key);
+                if(!isNaN(value)){
+                    keys.push(value);
+                    obj[value] = m_drive_path[key];
+                }
+            }
+            keys.sort();
+            for (let key of keys) {
+                const p = obj[key];
                 if(!p || !p.nmea){
                     continue;
                 }
                 const ary = p.nmea.split(',');
+                if(!ary[4] || !ary[2]){
+                    continue;
+                }
                 p.lon = _convert_DMS_to_deg(ary[4]);
                 p.lat = _convert_DMS_to_deg(ary[2]);
-                var feature = new ol.Feature({
-                    geometry: new ol.geom.Point(ol.proj.fromLonLat([p.lon, p.lat]))
-                });
-                feature.pgis_point = p;
-                this.m_vector_src.addFeature(feature);
+                const point = ol.proj.fromLonLat([p.lon, p.lat]);
+                points.push(point);
+                // var feature = new ol.Feature({
+                //     geometry: new ol.geom.Point(point)
+                // });
+                // feature.pgis_point = p;
+                // this.m_vector_src.addFeature(feature);
             }
+
+            const lineString = new ol.geom.LineString(points);
+            const lineFeature = new ol.Feature({
+                geometry: lineString
+            });
+            const lineStyle = new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: '#FF0000',
+                    width: 1
+                })
+            });
+            lineFeature.setStyle(lineStyle);
+            this.m_vector_src.addFeature(lineFeature);
         }
 
         _on_click(event_data) {

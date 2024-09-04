@@ -117,9 +117,9 @@ var create_plugin = (function () {
             });
             this.m_map.on('pointermove', (evt) => {
 
-                var pixel = this.m_map.getEventPixel(evt.originalEvent);
-                var hit = this.m_map.hasFeatureAtPixel(pixel);
-                this.m_map.getTargetElement().style.cursor = hit ? 'pointer' : '';
+                // var pixel = this.m_map.getEventPixel(evt.originalEvent);
+                // var hit = this.m_map.hasFeatureAtPixel(pixel);
+                // this.m_map.getTargetElement().style.cursor = hit ? 'pointer' : '';
             });
 
             this.refresh();
