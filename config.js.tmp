@@ -1,6 +1,7 @@
 var pgis_conf = {
 	"plugin_paths" : [
 		"plugins/map/map.js",
+//		"plugins/auto_drive/auto_drive.js",
 //		"plugins/rtk/rtk.js",
 		"plugins/gps/gps_redis.js",
 		"plugins/camera/camera.js",
@@ -9,6 +10,10 @@ var pgis_conf = {
 	],
 	"map" : {
 		"tileserver_style" : "http://localhost:9111/styles/basic-preview/style.json"
+	},
+	"auto_drive" : {
+		"webdis_url" : "ws://localhost:7379",
+		"drive_path_key" : "pserver-active-drive-path"
 	},
 	"gps_redis" : {
 		"webdis_url" : "ws://localhost:7379",
