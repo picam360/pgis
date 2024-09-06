@@ -170,6 +170,46 @@ var create_plugin = (function() {
                     });
                 }
             },
+            open_apmode_config : () => {
+                ons.createElement('apmode-dialog.html', { append: true })
+                .then(function (dialog) {
+
+                    $("#reset-btn").click(function() {
+                        m_pserver_ble.reset_wifi((result) => {
+                            if(result == "SUCCEEDED"){
+                                alert("Wifi Reset Succeeded!");
+                            }else{
+                                alert("Wifi Reset Failed!");
+                            }
+                            $("#apmode-dialog")[0].remove();
+                        });
+                    });
+
+                    $("#connect-btn").click(function() {
+                        let ssid = $("#ssid").val();
+                        let password = $("#password").val();
+                        let ipaddress = $("#ipaddress").val();
+                        if(!ipaddress){
+                            ipaddress = "1";
+                        }
+
+                        m_pserver_ble.enable_apmode(ipaddress, ssid, password, (result) => {
+                            if(result == "SUCCEEDED"){
+                                alert("AP Mode Succeeded!");
+                            }else{
+                                alert("AP Mode Failed!");
+                            }
+                            $("#apmode-dialog")[0].remove();
+                        });
+                    });
+                
+                    $("#cancel-btn").click(function() {
+                        $("#apmode-dialog")[0].remove();
+                    });
+
+                    dialog.show();
+                });
+            },
             open_wifi_config : () => {
                 m_pserver_ble.get_ssid((current_ssid) => {
                     m_pserver_ble.get_wifi_networks((list) => {
@@ -252,9 +292,23 @@ var create_plugin = (function() {
                                 return;
                             }
                             $("#wifi-btn").show();
+
                             
-                            document.getElementById('wifi-btn').addEventListener('click', function () {
-                                plugin.open_wifi_config();
+                            let pressTimer = 0;
+                            const threshold = 3000;
+                            document.getElementById('wifi-btn').addEventListener('mousedown', () => {
+                                pressTimer = setTimeout(() => {
+                                    pressTimer = 0;
+                                    plugin.open_apmode_config();
+                                }, threshold);
+                            });
+                            
+                            document.getElementById('wifi-btn').addEventListener('mouseup', function () {
+                                if(pressTimer){
+                                    clearTimeout(pressTimer);
+                                    pressTimer = 0;
+                                    plugin.open_wifi_config();
+                                }
                             });
                         });
 

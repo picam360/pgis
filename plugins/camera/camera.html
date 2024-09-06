@@ -46,6 +46,30 @@
   </ons-navigator>
 </ons-template>
 
+<ons-template id="apmode-dialog.html">
+  <ons-dialog id="apmode-dialog">
+      <div style="text-align: center; margin: 20px;">
+        <p>
+          AP Mode
+        </p>
+        <p>
+          <ons-input id="ssid" modifier="underbar" placeholder="SSID"></ons-input>
+        </p>
+        <p>
+          <ons-input id="password" modifier="underbar" type="password" placeholder="Password"></ons-input>
+        </p>
+        <p>
+          <ons-input id="ipaddress" modifier="underbar" placeholder="10.42.1.[1-255]"></ons-input>
+        </p>
+        <p>
+          <ons-button id="reset-btn">WIFI RESET</ons-button>
+          <ons-button id="connect-btn">AP MODE</ons-button>
+          <ons-button id="cancel-btn">CANCEL</ons-button>
+        </p>
+      </div>
+  </ons-dialog>
+</ons-template>
+
 <ons-template id="wifi-dialog.html">
   <ons-dialog id="wifi-dialog">
       <div style="text-align: center; margin: 20px;">

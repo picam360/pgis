@@ -134,13 +134,26 @@ const bleCam_Pserver = class extends IBLECamera {
                 this.m_callback.GET_WIFI_NETWORKS(list.slice(2));
                 this.m_callback.GET_WIFI_NETWORKS = null;
             }
+        }else if(str.startsWith("RES RESET_WIFI ")){
+            if(this.m_callback.RESET_WIFI){
+                var list = str.split(' ');
+                this.m_callback.RESET_WIFI(list[2]);
+                this.m_callback.RESET_WIFI = null;
+            }
         }else if(str.startsWith("RES CONNECT_WIFI ")){
             if(this.m_callback.CONNECT_WIFI){
                 var list = str.split(' ');
                 this.m_callback.CONNECT_WIFI(list[2]);
                 this.m_callback.CONNECT_WIFI = null;
             }
+        }else if(str.startsWith("RES ENABLE_APMODE ")){
+            if(this.m_callback.ENABLE_APMODE){
+                var list = str.split(' ');
+                this.m_callback.ENABLE_APMODE(list[2]);
+                this.m_callback.ENABLE_APMODE = null;
+            }
         }
+        
         console.log("BLE_CAMTX", str);
     }
 
@@ -160,10 +173,19 @@ const bleCam_Pserver = class extends IBLECamera {
         this.m_callback.GET_WIFI_NETWORKS = callback;
         this.writeGattValue("REQ GET_WIFI_NETWORKS");
     }
+    async reset_wifi(callback){
+        this.m_callback.RESET_WIFI = callback;
+        this.writeGattValue("REQ RESET_WIFI");
+    }
     async connect_wifi(ssid, password, callback){
         this.m_callback.CONNECT_WIFI = callback;
         this.writeGattValue(`REQ CONNECT_WIFI ${ssid} ${password}`);
     }
+    async enable_apmode(ipaddress, ssid, password, callback){
+        this.m_callback.ENABLE_APMODE = callback;
+        this.writeGattValue(`REQ ENABLE_APMODE ${ipaddress} ${ssid} ${password}`);
+    }
+    
 }
 
 var create_plugin = (function() {
