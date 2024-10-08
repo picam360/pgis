@@ -167,7 +167,7 @@ size: 64px
   flex-direction: column;
   background-color: #f1f1f1;
   overflow: hidden;
-  width: 50%; /* 初期の左側の幅 */
+  width: 50%;
 }
 
 /* 右側の地図エリア */
@@ -175,6 +175,7 @@ size: 64px
   flex: 1;
   position: relative;
   background-color: #e1e1e1;
+  height: 100%;
 }
 
 /* 左側上下の分割 */
