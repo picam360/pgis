@@ -166,7 +166,6 @@ size: 64px
   display: flex;
   flex-direction: column;
   background-color: #f1f1f1;
-  overflow: hidden;
   width: 50%;
 }
 
@@ -182,11 +181,12 @@ size: 64px
 .left-top {
   background-color: #c1c1c1;
   height: 50%;
+  overflow: hidden;
 }
 .left-bottom {
-  flex: 1;
-  position: relative;
   background-color: #c1c1c1;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* 左側の上下のドラッグ可能な分割線 (horizon-divider) */
