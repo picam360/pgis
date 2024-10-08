@@ -1,0 +1,142 @@
+<ons-template id="auto_drive.html">
+    <ons-navigator swipeable id="main-nav">
+        <ons-page id="home">
+            <ons-toolbar>
+                <div class="right">
+                    <ons-toolbar-button onclick="fn.open()">
+                        <ons-icon icon="md-menu"></ons-icon>
+                    </ons-toolbar-button>
+                </div>
+                <div class="center">
+                    pgis
+                </div>
+            </ons-toolbar>
+            
+            <div id="main_container" class="container">
+                <!-- Left half layout -->
+                <div id="left-side">
+                    <div class="left-top">
+                        <!-- Content for the top left -->
+                        <img src="plugins/auto_drive/512x256.png" alt="Left Top Image" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+            
+                    <div id="horizon-divider"></div>
+            
+                    <div class="left-bottom">
+                        <!-- Content for the bottom left -->
+                        <img src="plugins/auto_drive/512x256.png" alt="Left Bottom Image" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                </div>
+            
+                <div id="vertical-divider"></div>
+              
+                <!-- Right half layout -->
+                <div id="mapid">
+                    <div id="popup-form" class="ol-popup"></div>
+                    <div id="status-info-box" class="info-box"></div>
+            
+                    <div id="measured-value-box" class="info-box hidden">
+                        <div id="measured-distance-disp" class="measured-value-item">
+                            10.0 m
+                        </div>
+                    </div>
+            
+                    <!-- Helper buttons -->
+                    <button id="compass-btn" class="overlay-btn-l helper-btn"></button>
+            
+                    <!-- Control buttons -->
+                    <button id="config-btn" class="overlay-btn-l"></button>
+                    <button id="view-btn" class="overlay-btn-l"></button>
+                    <button id="add-btn" class="overlay-btn-l"></button>
+                    <button id="delete-btn" class="overlay-btn-l"></button>
+                    <button id="download-btn" class="overlay-btn-l"></button>
+                </div>
+            </div>
+            
+        </ons-page>
+    </ons-navigator>
+</ons-template>
+
+<ons-template id="apmode-dialog.html">
+    <ons-dialog id="apmode-dialog">
+        <div style="text-align: center; margin: 20px;">
+            <p>
+                AP Mode
+            </p>
+            <p>
+                <ons-input id="ssid" modifier="underbar" placeholder="SSID"></ons-input>
+            </p>
+            <p>
+                <ons-input id="password" modifier="underbar" type="password" placeholder="Password"></ons-input>
+            </p>
+            <p>
+                <ons-input id="ipaddress" modifier="underbar" placeholder="10.42.1.[1-255]"></ons-input>
+            </p>
+            <p>
+                <ons-button id="reset-btn">WIFI RESET</ons-button>
+                <ons-button id="connect-btn">AP MODE</ons-button>
+                <ons-button id="cancel-btn">CANCEL</ons-button>
+            </p>
+        </div>
+    </ons-dialog>
+</ons-template>
+
+<ons-template id="wifi-dialog.html">
+    <ons-dialog id="wifi-dialog">
+        <div style="text-align: center; margin: 20px;">
+            <p>
+                <ons-select id="ssid-select" modifier="underbar" placeholder="SSID">
+                    <option value="" disabled selected>SSID</option>
+                    <!-- SSID options will be populated dynamically -->
+                </ons-select>
+            </p>
+            <p>
+                <ons-input id="password" modifier="underbar" type="password" placeholder="Password"></ons-input>
+            </p>
+            <p>
+                <ons-button id="connect-btn">OK</ons-button>
+                <ons-button id="cancel-btn">CANCEL</ons-button>
+            </p>
+        </div>
+    </ons-dialog>
+</ons-template>
+
+<ons-template id="start-dialog.html">
+    <ons-dialog id="start-dialog">
+        <div style="text-align: center; padding: 10px;">
+            <p>
+                ボタンを押して開始します
+            </p>
+            <p>
+                <ons-button id="start-dialog-close-btn">開始</ons-button>
+            </p>
+        </div>
+    </ons-dialog>
+</ons-template>
+
+<ons-template id="config-dialog.html">
+    <ons-dialog id="config-dialog">
+        <div style="text-align: center; padding: 10px;">
+            <table class="input-table">
+                <tr>
+                    <td class="input-label">Camera URL:</td>
+                    <td><ons-input id="camera-url" modifier="underbar" placeholder="Enter camera URL" float></ons-input>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="input-label">Connect BLE:</td>
+                    <td>
+                        <button id="ble-btn" class="mode-panel-button"></button>
+                        <button id="wifi-btn" class="mode-panel-button" style="display: none;"></button>
+                        <button id="rtk-btn" class="mode-panel-button" style="display: none;"></button>
+                    </td>
+                </tr>
+            </table>
+            <p>
+                <ons-button id="config-dialog-default-btn">Default</ons-button>
+                <ons-button id="config-dialog-ok-btn">OK</ons-button>
+                <ons-button id="config-dialog-close-btn">Close</ons-button>
+            </p>
+        </div>
+    </ons-dialog>
+</ons-template>

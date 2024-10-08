@@ -164,6 +164,117 @@ var create_plugin = (function () {
             name: "auto_drive",
             init_options: function (options) {
                 m_options = options || {};
+                if(m_options && m_options.load_html){
+                    m_plugin_host.getFile("plugins/auto_drive/auto_drive.html", function(
+                        chunk_array) {
+                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        var node = $.parseHTML(txt);
+                        $('body').append(node);
+                        fn.load('auto_drive.html', () => {		
+                            console.log('auto_drive.html loaded');
+
+                            document.getElementById('config-btn').addEventListener('click', function () {
+                                plugin.open_config();
+                            });
+
+
+                            document.getElementById('view-btn').addEventListener('click', function () {
+                                plugin.open_pviewer();
+                            });
+
+                            document.getElementById('add-btn').addEventListener('click', function () {
+                                plugin.take_picture();
+                            });
+                            document.getElementById('delete-btn').addEventListener('click', function () {
+                                plugin.remove_pos();
+                            });
+                            document.getElementById('download-btn').addEventListener('click', function () {
+                                plugin.generate_psf();
+                            });
+
+
+                            // 左右のドラッグ処理 (vertical-divider)
+                            const verticalDivider = document.getElementById('vertical-divider');
+                            const leftSide = document.getElementById('left-side');
+                            const mapid = document.getElementById('mapid');
+                            let isDraggingEW = false;
+
+                            verticalDivider.addEventListener('mousedown', function(e) {
+                                isDraggingEW = true;
+                                document.body.classList.add('dragging-ew');
+                            });
+
+                            document.addEventListener('mousemove', function(e) {
+                                if (!isDraggingEW) return;
+
+                                const offset = e.clientX;
+                                const totalWidth = window.innerWidth;
+
+                                const minLeftWidth = 100; // 左側の最小幅
+                                const minRightWidth = 100; // 右側の最小幅
+
+                                if (offset > minLeftWidth && offset < totalWidth - minRightWidth) {
+                                leftSide.style.width = offset + 'px';
+                                mapid.style.flex = '1';
+                                }
+                            });
+
+                            document.addEventListener('mouseup', function() {
+                                isDraggingEW = false;
+                                document.body.classList.remove('dragging-ew');
+                            });
+
+                            // 上下のドラッグ処理 (horizon-divider)
+                            const horizonDivider = document.getElementById('horizon-divider');
+                            const leftTop = document.querySelector('.left-top');
+                            const leftBottom = document.querySelector('.left-bottom');
+                            let isDraggingNS = false;
+
+                            horizonDivider.addEventListener('mousedown', function(e) {
+                                isDraggingNS = true;
+                                document.body.classList.add('dragging-ns');
+                            });
+
+                            document.addEventListener('mousemove', function(e) {
+                                if (!isDraggingNS) return;
+
+                                // Adjust for the offset of the left-side container from the top of the page
+                                const offset = e.clientY - leftSide.getBoundingClientRect().top;
+                                const totalHeight = leftSide.clientHeight;
+                            
+                                const minTopHeight = 50; // Minimum height for the top section
+                                const minBottomHeight = 50; // Minimum height for the bottom section
+                            
+                                if (offset > minTopHeight && offset < totalHeight - minBottomHeight) {
+                                    // Set the top section height
+                                    leftTop.style.height = offset + 'px';
+                            
+                                    // Set the bottom section to take the remaining space
+                                    leftBottom.style.height = (totalHeight - offset) + 'px';
+                                }
+                            });
+
+                            document.addEventListener('mouseup', function() {
+                                isDraggingNS = false;
+                                document.body.classList.remove('dragging-ns');
+                            });
+
+                        });
+                    });
+                    m_plugin_host.getFile("plugins/auto_drive/auto_drive.css", function (
+                        chunk_array) {
+                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        const el = document.createElement('style');
+                        el.innerHTML = txt;
+                        document.head.appendChild(el);
+                    });
+                }
+				pgis.get_point_handler().add_create_table_callback((columns) => {
+					columns['filepath'] = "TEXT";
+				});
+				pgis.get_point_handler().add_insert_callback((columns, gp) => {
+					columns['filepath'] = gp.filepath;
+				});
             },
             event_handler: function (sender, event) {
                 if (pgis === sender) {
