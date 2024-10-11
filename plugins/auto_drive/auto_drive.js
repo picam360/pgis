@@ -458,7 +458,6 @@ var create_plugin = (function () {
                                 plugin.update_info_box(gga);
                                 plugin.update_value('gps-latitude', num_format(gga.latitude, 3, 7));//7:cm order
                                 plugin.update_value('gps-longitude', num_format(gga.longitude, 3, 7));//7:cm order
-                                //console.log(nmea);
 
                                 const img = document.getElementById('img-left-top');
                                 img.src = 'data:image/jpeg;base64,' + tmp_img[2];
@@ -466,7 +465,11 @@ var create_plugin = (function () {
                                 const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
                                 plugin.update_value('encoder-left', encoder.left);
                                 plugin.update_value('encoder-right', encoder.right);
-                                //console.log(encoder);
+
+                                const imu = JSON.parse(frame["picam360:frame"]["passthrough:imu"]);
+                                plugin.update_value('imu-heading', num_format(imu.heading, 3, 7));
+
+                                //console.log(frame);
                             }
                         }
                         tmp_img = [];
