@@ -17,6 +17,63 @@ var create_plugin = (function () {
         }
     }
 
+    class GGAParser {
+        constructor(dataString, options = {}) {
+            this.DataString = dataString;
+            if (options.latitude && options.longitude) {
+                this.latitude = options.latitude;
+                this.longitude = options.longitude;
+                return;
+            }
+            const fields = dataString.split(',');
+            this.messageType = fields[0];
+            this.utcTime = this._convertToDateTime(fields[1]);
+            this.latitude = this._convert_DMS_to_deg(fields[2]);
+            let latitudeDirection = fields[3];
+            this.longitude = this._convert_DMS_to_deg(fields[4]);
+            let longitudeDirection = fields[5];
+    
+            if (latitudeDirection === 'S') this.latitude *= -1;
+            if (longitudeDirection === 'W') this.longitude *= -1;
+    
+            this.fixQuality = parseInt(fields[6]);
+            this.numOfSatellites = parseInt(fields[7]);
+            this.horizontalDilution = parseFloat(fields[8]);
+            this.altitude = parseFloat(fields[9]);
+            this.altitudeUnits = fields[10];
+            this.geoidHeight = parseFloat(fields[11]);
+            this.geoidHeightUnits = fields[12];
+            this.ageOfData = parseFloat(fields[13]);
+            this.diffRefStationID = fields[14].split('*')[0];
+        }
+        _convert_DMS_to_deg(input_str) {
+            var dotIndex = input_str.indexOf('.');
+            if (dotIndex !== -1) {
+                var degrees = parseFloat(input_str.slice(0, dotIndex - 2));
+                var minutes = parseFloat(input_str.slice(dotIndex - 2));
+                var deg = degrees + minutes / 60;
+                return deg;
+            } else {
+                return -1;
+            }
+        }
+        _convertToDateTime(timeString) {
+            // 時間、分、秒の各部分を抽出
+            let hours = parseInt(timeString.substring(0, 2), 10);
+            let minutes = parseInt(timeString.substring(2, 4), 10);
+            let seconds = parseInt(timeString.substring(4, 6), 10);
+            let ms = parseInt(timeString.substring(7, 9), 10) * 10;
+    
+            // 今日の日付を取得
+            let currentDate = new Date();
+    
+            // 時間、分、秒をセット
+            currentDate.setUTCHours(hours, minutes, seconds, ms);
+    
+            return currentDate;
+        }
+    }
+
 
     class DrivePathLayer {
         constructor(map, z_idx) {
@@ -192,73 +249,8 @@ var create_plugin = (function () {
                                 plugin.generate_psf();
                             });
 
-
-                            // 左右のドラッグ処理 (vertical-divider)
-                            const verticalDivider = document.getElementById('vertical-divider');
-                            const leftSide = document.getElementById('left-side');
-                            const mapid = document.getElementById('mapid');
-                            let isDraggingEW = false;
-
-                            verticalDivider.addEventListener('mousedown', function(e) {
-                                isDraggingEW = true;
-                                document.body.classList.add('dragging-ew');
-                            });
-
-                            document.addEventListener('mousemove', function(e) {
-                                if (!isDraggingEW) return;
-
-                                const offset = e.clientX;
-                                const totalWidth = window.innerWidth;
-
-                                const minLeftWidth = 100; // 左側の最小幅
-                                const minRightWidth = 100; // 右側の最小幅
-
-                                if (offset > minLeftWidth && offset < totalWidth - minRightWidth) {
-                                leftSide.style.width = offset + 'px';
-                                mapid.style.flex = '1';
-                                }
-                            });
-
-                            document.addEventListener('mouseup', function() {
-                                isDraggingEW = false;
-                                document.body.classList.remove('dragging-ew');
-                            });
-
-                            // 上下のドラッグ処理 (horizon-divider)
-                            const horizonDivider = document.getElementById('horizon-divider');
-                            const leftTop = document.querySelector('.left-top');
-                            const leftBottom = document.querySelector('.left-bottom');
-                            let isDraggingNS = false;
-
-                            horizonDivider.addEventListener('mousedown', function(e) {
-                                isDraggingNS = true;
-                                document.body.classList.add('dragging-ns');
-                            });
-
-                            document.addEventListener('mousemove', function(e) {
-                                if (!isDraggingNS) return;
-
-                                // Adjust for the offset of the left-side container from the top of the page
-                                const offset = e.clientY - leftSide.getBoundingClientRect().top;
-                                const totalHeight = leftSide.clientHeight;
-                            
-                                const minTopHeight = 50; // Minimum height for the top section
-                                const minBottomHeight = 50; // Minimum height for the bottom section
-                            
-                                if (offset > minTopHeight && offset < totalHeight - minBottomHeight) {
-                                    // Set the top section height
-                                    leftTop.style.height = offset + 'px';
-                            
-                                    // Set the bottom section to take the remaining space
-                                    leftBottom.style.height = (totalHeight - offset) + 'px';
-                                }
-                            });
-
-                            document.addEventListener('mouseup', function() {
-                                isDraggingNS = false;
-                                document.body.classList.remove('dragging-ns');
-                            });
-
+                            plugin.init_border_layout();
+                            plugin.init_info_box();
                         });
                     });
                     m_plugin_host.getFile("plugins/auto_drive/auto_drive.css", function (
@@ -288,6 +280,143 @@ var create_plugin = (function () {
                     }
                 }
             },
+            init_info_box: () => {
+
+                const template = document.createElement('template');
+                const txt = `
+                    <div class="info-item" id="status-box">
+                        <span>GPS: </span><span id="status">起動しています...</span>
+                    </div>`;
+                template.innerHTML = txt.trim()
+                const info_box = document.getElementById('status-info-box');
+                info_box.appendChild(template.content.firstChild);
+
+            },
+            update_info_box: (gga) => {
+
+                // GAA: GPS Quality indicator:
+                const GQ_INVALID = 0; // 測位不能
+                const GQ_GPS = 1; // 単独測位
+                const GQ_DGPS = 2; // Differential GPS fix
+                const GQ_PPS = 3; // PPS 該当することはない
+                const GQ_RTK = 4; // RTK Fixed
+                const GQ_RTK_FLOAT = 5; // RTK Float
+                function get_gq_text(gq_val) {
+                    switch (gq_val) {
+                        case GQ_INVALID: return '測位不能'; break;
+                        case GQ_GPS: return 'SGPS'; break;
+                        case GQ_DGPS: return 'DGPS'; break;
+                        case GQ_PPS: return 'PPS'; break;
+                        case GQ_RTK: return 'RTK'; break;
+                        case GQ_RTK_FLOAT: return 'FLOAT'; break;
+                        default: return '-'; break;
+                    }
+                }
+
+                // status code
+                const STATUS_CODE_INIT = "initializing";
+                const STATUS_CODE_OK = "ok";
+                const STATUS_CODE_WARN = "warn";
+                const STATUS_CODE_ERROR = "error";
+                
+                let status = "";
+                let status_msg = "";
+                if (gga.fixQuality == GQ_RTK) {
+                    status = STATUS_CODE_OK;
+                    status_msg = "高精度";
+                } else if (gga.fixQuality == GQ_RTK_FLOAT) {
+                    status = STATUS_CODE_OK;
+                    status_msg = "中精度";
+                } else if (gga.fixQuality == GQ_INVALID) {
+                    status = STATUS_CODE_ERROR;
+                    status_msg = "通信エラー ";
+                    //status_msg += problematic_machine_text();
+                } else {
+                    status = STATUS_CODE_WARN;
+                    status_msg = "精度低 ";
+                    //status_msg += `(${get_gq_text(_gnss_quality)})`;
+                    //status_msg += problematic_machine_text();
+                }
+
+                document.getElementById("status-box").setAttribute("data-status", status);
+                document.getElementById('status').textContent = status_msg;
+
+            },
+            init_border_layout: () => {
+                // 左右のドラッグ処理 (vertical-divider)
+                const verticalDivider = document.getElementById('vertical-divider');
+                const leftSide = document.getElementById('left-side');
+                const mapid = document.getElementById('mapid');
+                let isDraggingEW = false;
+
+                verticalDivider.addEventListener('mousedown', function(e) {
+                    isDraggingEW = true;
+                    document.body.classList.add('dragging-ew');
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (!isDraggingEW) return;
+
+                    const offset = e.clientX;
+                    const totalWidth = window.innerWidth;
+
+                    const minLeftWidth = 100; // 左側の最小幅
+                    const minRightWidth = 100; // 右側の最小幅
+
+                    if (offset > minLeftWidth && offset < totalWidth - minRightWidth) {
+                    leftSide.style.width = offset + 'px';
+                    mapid.style.flex = '1';
+                    }
+                });
+
+                document.addEventListener('mouseup', function() {
+                    isDraggingEW = false;
+                    document.body.classList.remove('dragging-ew');
+                });
+
+                // 上下のドラッグ処理 (horizon-divider)
+                const horizonDivider = document.getElementById('horizon-divider');
+                const leftTop = document.querySelector('.left-top');
+                const leftBottom = document.querySelector('.left-bottom');
+                let isDraggingNS = false;
+
+                horizonDivider.addEventListener('mousedown', function(e) {
+                    isDraggingNS = true;
+                    document.body.classList.add('dragging-ns');
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (!isDraggingNS) return;
+
+                    // Adjust for the offset of the left-side container from the top of the page
+                    const offset = e.clientY - leftSide.getBoundingClientRect().top;
+                    const totalHeight = leftSide.clientHeight;
+                
+                    const minTopHeight = 50; // Minimum height for the top section
+                    const minBottomHeight = 50; // Minimum height for the bottom section
+                
+                    if (offset > minTopHeight && offset < totalHeight - minBottomHeight) {
+                        // Set the top section height
+                        leftTop.style.height = offset + 'px';
+                
+                        // Set the bottom section to take the remaining space
+                        leftBottom.style.height = (totalHeight - offset) + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', function() {
+                    isDraggingNS = false;
+                    document.body.classList.remove('dragging-ns');
+                });
+
+            },
+
+            update_value: (id, newValue) => {
+                const cell = document.getElementById(id);
+                if (cell) {
+                    cell.textContent = newValue;
+                }
+            },
             subscribe_pst: () => {
 
                 const socket = new WebSocket(m_options.webdis_url);
@@ -302,14 +431,15 @@ var create_plugin = (function () {
                     const data = msg["SUBSCRIBE"][2];
                     if(data.length == 0 && tmp_img.length != 0){
                         if(tmp_img.length == 3){
-                            const header_head = tmp_img[0].slice(0, 2).toString('utf-8');
+                            const header_data = atob(tmp_img[0]);
+                            const header_head = header_data.slice(0, 2).toString('utf-8');
                             if (header_head !== 'PI') {
                                 throw new Error('Invalid file format');
                             }
                             
-                            const header_size = (tmp_img[0].charCodeAt(2) << 8) | tmp_img[0].charCodeAt(3);
-                            const header = tmp_img[0].slice(4, 4 + header_size).toString('utf-8');
-                            const meta = tmp_img[1];
+                            const header_size = (header_data.charCodeAt(2) << 8) | header_data.charCodeAt(3);
+                            const header = header_data.slice(4, 4 + header_size).toString('utf-8');
+                            const meta = atob(tmp_img[1]);
 
                             const parser = new fxp.XMLParser({
                                 ignoreAttributes: false,
@@ -318,16 +448,25 @@ var create_plugin = (function () {
                             const frame = parser.parse(meta);
                             if(frame && frame["picam360:frame"]){
                                 const nmea = frame["picam360:frame"]["passthrough:nmea"];
-                                const nmea_split = nmea.split(',');
-                                pgis.get_gps_handler().set_current_position(
-                                    _convert_DMS_to_deg(nmea_split[2]), 
-                                    _convert_DMS_to_deg(nmea_split[4]));
-                                console.log(nmea);
+                                const gga = new GGAParser(nmea);
+                                pgis.get_gps_handler().set_current_position(gga.latitude, gga.longitude);
+                                plugin.update_info_box(gga);
+                                plugin.update_value('gps-latitude', gga.latitude);
+                                plugin.update_value('gps-longitude', gga.longitude);
+                                //console.log(nmea);
+
+                                const img = document.getElementById('img-left-top');
+                                img.src = 'data:image/jpeg;base64,' + tmp_img[2];
+
+                                const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
+                                plugin.update_value('encoder-left', encoder.left);
+                                plugin.update_value('encoder-right', encoder.right);
+                                //console.log(encoder);
                             }
                         }
                         tmp_img = [];
                     }else{
-                        tmp_img.push(atob(data));
+                        tmp_img.push(data);
                     }
                 };
         
