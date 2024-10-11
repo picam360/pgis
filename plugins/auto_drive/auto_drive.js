@@ -447,12 +447,17 @@ var create_plugin = (function () {
                             });
                             const frame = parser.parse(meta);
                             if(frame && frame["picam360:frame"]){
+                                function num_format(num, padding, fixed){
+                                    let [integerPart, decimalPart] = num.toFixed(fixed).split('.');
+                                    integerPart = integerPart.padStart(padding, '0');
+                                    return `${integerPart}.${decimalPart}`;
+                                }
                                 const nmea = frame["picam360:frame"]["passthrough:nmea"];
                                 const gga = new GGAParser(nmea);
                                 pgis.get_gps_handler().set_current_position(gga.latitude, gga.longitude);
                                 plugin.update_info_box(gga);
-                                plugin.update_value('gps-latitude', gga.latitude);
-                                plugin.update_value('gps-longitude', gga.longitude);
+                                plugin.update_value('gps-latitude', num_format(gga.latitude, 3, 7));//7:cm order
+                                plugin.update_value('gps-longitude', num_format(gga.longitude, 3, 7));//7:cm order
                                 //console.log(nmea);
 
                                 const img = document.getElementById('img-left-top');
