@@ -234,20 +234,20 @@ var create_plugin = (function () {
             };
             pgis.set_gps_handler(m_gps_handler);
 
-            setInterval(() => {
-                if(m_map && pgis.get_gps_handler() == m_gps_handler){
-                    const view = m_map.getView();
-                    const center = view.getCenter();
-                    const centerLonLat = ol.proj.transform(center, 'EPSG:3857', 'EPSG:4326');
-                    if(centerLonLat[0] < 0){
-                        centerLonLat[0] += 360;
-                    }
-                    if(centerLonLat[1] < 0){
-                        centerLonLat[1] += 360;
-                    }
-                    m_gps_handler.set_current_position(centerLonLat[1], centerLonLat[0]);
-                }
-            }, 1000);
+            // setInterval(() => {
+            //     if(m_map && pgis.get_gps_handler() == m_gps_handler){
+            //         const view = m_map.getView();
+            //         const center = view.getCenter();
+            //         const centerLonLat = ol.proj.transform(center, 'EPSG:3857', 'EPSG:4326');
+            //         if(centerLonLat[0] < 0){
+            //             centerLonLat[0] += 360;
+            //         }
+            //         if(centerLonLat[1] < 0){
+            //             centerLonLat[1] += 360;
+            //         }
+            //         m_gps_handler.set_current_position(centerLonLat[1], centerLonLat[0]);
+            //     }
+            // }, 1000);
         }
 
         var plugin = {

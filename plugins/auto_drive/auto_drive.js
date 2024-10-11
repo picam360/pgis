@@ -281,9 +281,70 @@ var create_plugin = (function () {
                     if (event === "loaded") {
                         setTimeout(() => {
                             plugin.init_map_layer();
+                            if(m_options.webdis_url && m_options.pst_channel){//webdis
+                                plugin.subscribe_pst();
+                            }
                         }, 1000)
                     }
                 }
+            },
+            subscribe_pst: () => {
+
+                const socket = new WebSocket(m_options.webdis_url);
+
+                let tmp_img = [];
+                socket.onmessage = function(event) {
+                    const msg = JSON.parse(event.data);
+                    if(!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.pst_channel){
+                        return;
+                    }
+
+                    const data = msg["SUBSCRIBE"][2];
+                    if(data.length == 0 && tmp_img.length != 0){
+                        if(tmp_img.length == 3){
+                            const header_head = tmp_img[0].slice(0, 2).toString('utf-8');
+                            if (header_head !== 'PI') {
+                                throw new Error('Invalid file format');
+                            }
+                            
+                            const header_size = (tmp_img[0].charCodeAt(2) << 8) | tmp_img[0].charCodeAt(3);
+                            const header = tmp_img[0].slice(4, 4 + header_size).toString('utf-8');
+                            const meta = tmp_img[1];
+
+                            const parser = new fxp.XMLParser({
+                                ignoreAttributes: false,
+                                attributeNamePrefix: "",
+                            });
+                            const frame = parser.parse(meta);
+                            if(frame && frame["picam360:frame"]){
+                                const nmea = frame["picam360:frame"]["passthrough:nmea"];
+                                const nmea_split = nmea.split(',');
+                                pgis.get_gps_handler().set_current_position(
+                                    _convert_DMS_to_deg(nmea_split[2]), 
+                                    _convert_DMS_to_deg(nmea_split[4]));
+                                console.log(nmea);
+                            }
+                        }
+                        tmp_img = [];
+                    }else{
+                        tmp_img.push(atob(data));
+                    }
+                };
+        
+                socket.onopen = function() {
+                    console.log("webdis connection established");
+                    if(m_options.pst_channel){
+                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.pst_channel]));
+                    }
+                };
+        
+                socket.onclose = function() {
+                    console.log("webdis connection closed");
+                };
+        
+                socket.onerror = function(error) {
+                    console.log(`Error: ${error.message}`);
+                };
             },
             init_map_layer: () => {
                 const map_handler = pgis.get_map_handler();
