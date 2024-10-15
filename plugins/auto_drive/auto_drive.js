@@ -1,9 +1,10 @@
 var create_plugin = (function () {
     var m_plugin_host = null;
     var m_options = null;
-    var m_drive_path_layer = null;
+    var m_drive_waypoints_layer = null;
     var m_selected_points = [];
-    var m_drive_path = {};
+    var m_drive_waypoints = {};
+    let m_socket = null;
 
     function _convert_DMS_to_deg(input_str) {
         var dotIndex = input_str.indexOf('.');
@@ -138,11 +139,11 @@ var create_plugin = (function () {
 
             const keys = [];
             const obj = {};
-            for (let key in m_drive_path) {
+            for (let key in m_drive_waypoints) {
                 const value = parseFloat(key);
                 if(!isNaN(value)){
                     keys.push(value);
-                    obj[value] = m_drive_path[key];
+                    obj[value] = m_drive_waypoints[key];
                 }
             }
             keys.sort();
@@ -230,6 +231,35 @@ var create_plugin = (function () {
                         fn.load('auto_drive.html', () => {		
                             console.log('auto_drive.html loaded');
 
+                            let is_auto_drive = false;
+                            document.getElementById('play-btn').addEventListener('click', function () {
+                                if(is_auto_drive){
+                                    console.log("auto-drive stop");
+                                    is_auto_drive = false;
+                                    document.getElementById('play-btn').style.backgroundImage = 'var(--icon-play-64)';
+                                    plugin.stop_auto_drive();
+                                }else{
+                                    console.log("auto-drive start");
+                                    is_auto_drive = true;
+                                    document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
+                                    plugin.start_auto_drive();
+                                }
+                            });
+                            let is_record_path = false;
+                            document.getElementById('record-btn').addEventListener('click', function () {
+                                if(is_record_path){
+                                    console.log("path-record stop");
+                                    is_record_path = false;
+                                    document.getElementById('record-btn').style.backgroundImage = 'var(--icon-record-64)';
+                                    plugin.stop_record_path();
+                                }else{
+                                    console.log("path-record start");
+                                    is_record_path = true;
+                                    document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
+                                    plugin.start_record_path();
+                                }
+                            });
+
                             document.getElementById('config-btn').addEventListener('click', function () {
                                 plugin.open_config();
                             });
@@ -272,6 +302,29 @@ var create_plugin = (function () {
                 if (pgis === sender) {
                     if (event === "loaded") {
                         setTimeout(() => {
+                            if(m_options.webdis_url && m_options.pst_channel){//webdis
+                                const socket = new WebSocket(m_options.webdis_url);
+
+                                let tmp_img = [];
+                                socket.onmessage = function(event) {
+                                    console.log(event);
+                                };
+                        
+                                socket.onopen = function() {
+                                    console.log("webdis connection established");
+                                    m_socket = socket;
+                                };
+                        
+                                socket.onclose = function() {
+                                    console.log("webdis connection closed");
+                                    m_socket = null;
+                                };
+                        
+                                socket.onerror = function(error) {
+                                    console.log(`Error: ${error.message}`);
+                                    socket.close();
+                                };
+                            }
                             plugin.init_map_layer();
                             if(m_options.webdis_url && m_options.pst_channel){//webdis
                                 plugin.subscribe_pst();
@@ -493,11 +546,31 @@ var create_plugin = (function () {
                     console.log(`Error: ${error.message}`);
                 };
             },
+            start_record_path: () => {
+                if(m_socket){
+                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_RECORD"]));
+                }
+            },
+            stop_record_path: () => {
+                if(m_socket){
+                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD STOP_RECORD"]));
+                }
+            },
+            start_auto_drive: () => {
+                if(m_socket){
+                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_AUTO"]));
+                }
+            },
+            stop_auto_drive: () => {
+                if(m_socket){
+                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD STOP_AUTO"]));
+                }
+            },
             init_map_layer: () => {
                 const map_handler = pgis.get_map_handler();
                 const map = map_handler.get_map();
-                m_drive_path_layer = new DrivePathLayer(map, 500);
-                m_drive_path_layer.add_click_callback((event_data, feature) => {
+                m_drive_waypoints_layer = new DrivePathLayer(map, 500);
+                m_drive_waypoints_layer.add_click_callback((event_data, feature) => {
                     m_selected_points = [];
                     if(feature){
                         m_selected_points.push(feature);
@@ -511,15 +584,15 @@ var create_plugin = (function () {
 					socket.onmessage = function(event) {
 						const data = JSON.parse(event.data);
 						if(data["GET"]){
-                            m_drive_path = JSON.parse(data["GET"]);
-                            m_drive_path_layer.refresh();
+                            m_drive_waypoints = JSON.parse(data["GET"]);
+                            m_drive_waypoints_layer.refresh();
 						}
 					};
 			
 					socket.onopen = function() {
 						console.log("webdis connection established");
-						if(m_options.drive_path_key){
-							socket.send(JSON.stringify(["GET", m_options.drive_path_key]));
+						if(m_options.auto_drive_waypoints_key){
+							socket.send(JSON.stringify(["GET", m_options.auto_drive_waypoints_key]));
 						}
 					};
 			
