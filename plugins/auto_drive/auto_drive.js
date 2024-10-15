@@ -1,17 +1,18 @@
 var create_plugin = (function () {
-    var m_plugin_host = null;
-    var m_options = null;
-    var m_drive_waypoints_layer = null;
-    var m_selected_points = [];
-    var m_drive_waypoints = {};
+    let m_plugin_host = null;
+    let m_options = null;
+    let m_waypoints_layer = null;
+    let m_selected_points = [];
+    let m_waypoints = {};
+    let m_cur = 0;
     let m_socket = null;
 
     function _convert_DMS_to_deg(input_str) {
-        var dotIndex = input_str.indexOf('.');
+        const dotIndex = input_str.indexOf('.');
         if (dotIndex !== -1) {
-            var degrees = parseFloat(input_str.slice(0, dotIndex - 2));
-            var minutes = parseFloat(input_str.slice(dotIndex - 2));
-            var deg = degrees + minutes / 60;
+            const degrees = parseFloat(input_str.slice(0, dotIndex - 2));
+            const minutes = parseFloat(input_str.slice(dotIndex - 2));
+            const deg = degrees + minutes / 60;
             return deg;
         } else {
             return -1;
@@ -48,11 +49,11 @@ var create_plugin = (function () {
             this.diffRefStationID = fields[14].split('*')[0];
         }
         _convert_DMS_to_deg(input_str) {
-            var dotIndex = input_str.indexOf('.');
+            const dotIndex = input_str.indexOf('.');
             if (dotIndex !== -1) {
-                var degrees = parseFloat(input_str.slice(0, dotIndex - 2));
-                var minutes = parseFloat(input_str.slice(dotIndex - 2));
-                var deg = degrees + minutes / 60;
+                const degrees = parseFloat(input_str.slice(0, dotIndex - 2));
+                const minutes = parseFloat(input_str.slice(dotIndex - 2));
+                const deg = degrees + minutes / 60;
                 return deg;
             } else {
                 return -1;
@@ -76,7 +77,7 @@ var create_plugin = (function () {
     }
 
 
-    class DrivePathLayer {
+    class WaypointsLayer {
         constructor(map, z_idx) {
             this.m_map = map;
             this.m_vector_src = null;
@@ -85,6 +86,8 @@ var create_plugin = (function () {
             this.m_layer = null;
             this.m_click_callback = [];
             this.m_z_idx = z_idx;
+            this.m_waypoints = null;
+            this.m_cur = 0;
             this._init();
         }
         _init() {
@@ -123,31 +126,32 @@ var create_plugin = (function () {
             });
             this.m_map.on('pointermove', (evt) => {
 
-                // var pixel = this.m_map.getEventPixel(evt.originalEvent);
-                // var hit = this.m_map.hasFeatureAtPixel(pixel);
+                // const pixel = this.m_map.getEventPixel(evt.originalEvent);
+                // const hit = this.m_map.hasFeatureAtPixel(pixel);
                 // this.m_map.getTargetElement().style.cursor = hit ? 'pointer' : '';
             });
 
-            this.refresh();
-
             this.m_map.addLayer(this.m_layer);
         }
-        refresh() {
+        set_waypoints(waypoints) {
+            this.m_waypoints = waypoints;
+
             this.m_vector_src.clear();
 
             const points = [];
 
             const keys = [];
             const obj = {};
-            for (let key in m_drive_waypoints) {
+            for (let key in this.m_waypoints) {
                 const value = parseFloat(key);
                 if(!isNaN(value)){
                     keys.push(value);
-                    obj[value] = m_drive_waypoints[key];
+                    obj[value] = this.m_waypoints[key];
                 }
             }
             keys.sort();
-            for (let key of keys) {
+            for (let i in keys) {
+                const key = keys[i];
                 const p = obj[key];
                 if(!p || !p.nmea){
                     continue;
@@ -160,7 +164,7 @@ var create_plugin = (function () {
                 p.lat = _convert_DMS_to_deg(ary[2]);
                 const point = ol.proj.fromLonLat([p.lon, p.lat]);
                 points.push(point);
-                // var feature = new ol.Feature({
+                // const feature = new ol.Feature({
                 //     geometry: new ol.geom.Point(point)
                 // });
                 // feature.pgis_point = p;
@@ -180,11 +184,62 @@ var create_plugin = (function () {
             lineFeature.setStyle(lineStyle);
             this.m_vector_src.addFeature(lineFeature);
         }
+        set_cur(cur) {
+            this.m_cur = cur;
+            if(this.m_cur_feature){
+                this.m_vector_src.removeFeature(this.m_cur_feature);
+                this.m_cur_feature = null;
+            }
+
+            const keys = [];
+            const obj = {};
+            for (let key in this.m_waypoints) {
+                const value = parseFloat(key);
+                if(!isNaN(value)){
+                    keys.push(value);
+                    obj[value] = this.m_waypoints[key];
+                }
+            }
+            keys.sort();
+            const key = keys[cur];
+            const p = obj[key];
+            if(!p || !p.nmea){
+                return;
+            }
+            const ary = p.nmea.split(',');
+            if(!ary[4] || !ary[2]){
+                return;
+            }
+            p.lon = _convert_DMS_to_deg(ary[4]);
+            p.lat = _convert_DMS_to_deg(ary[2]);
+            const point = ol.proj.fromLonLat([p.lon, p.lat]);
+            const feature = new ol.Feature({
+                geometry: new ol.geom.Point(point)
+            });
+            // feature.pgis_point = p;
+            
+            const style = new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 9, // 半径を適切なサイズに設定します
+                    fill: new ol.style.Fill({
+                        color: 'white', // 中の色を白に設定
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: 'blue', // 縁取りの色を赤に設定
+                        width: 6, // 縁取りの幅を設定
+                    }),
+                }),
+                zIndex: this.m_z_idx,
+            });
+            feature.setStyle(style);
+            this.m_cur_feature = feature;
+            this.m_vector_src.addFeature(this.m_cur_feature);
+        }
 
         _on_click(event_data) {
             let self = this;
             this.reset_clicked_style();
-            var feature = this.m_map.forEachFeatureAtPixel(event_data.pixel, function (feature) {
+            const feature = this.m_map.forEachFeatureAtPixel(event_data.pixel, function (feature) {
                 return feature;
             }, {
                 layerFilter: function (layer) {
@@ -194,7 +249,7 @@ var create_plugin = (function () {
             if (feature) {
                 this.set_clicked_style(feature);
             }
-            for (var cb of this.m_click_callback) {
+            for (let cb of this.m_click_callback) {
                 cb(event_data, feature);
             }
         }
@@ -218,15 +273,15 @@ var create_plugin = (function () {
         //debugger;
         m_plugin_host = plugin_host;
 
-        var plugin = {
+        const plugin = {
             name: "auto_drive",
             init_options: function (options) {
                 m_options = options || {};
                 if(m_options && m_options.load_html){
                     m_plugin_host.getFile("plugins/auto_drive/auto_drive.html", function(
                         chunk_array) {
-                        var txt = (new TextDecoder).decode(chunk_array[0]);
-                        var node = $.parseHTML(txt);
+                        const txt = (new TextDecoder).decode(chunk_array[0]);
+                        const node = $.parseHTML(txt);
                         $('body').append(node);
                         fn.load('auto_drive.html', () => {		
                             console.log('auto_drive.html loaded');
@@ -285,7 +340,7 @@ var create_plugin = (function () {
                     });
                     m_plugin_host.getFile("plugins/auto_drive/auto_drive.css", function (
                         chunk_array) {
-                        var txt = (new TextDecoder).decode(chunk_array[0]);
+                        const txt = (new TextDecoder).decode(chunk_array[0]);
                         const el = document.createElement('style');
                         el.innerHTML = txt;
                         document.head.appendChild(el);
@@ -569,8 +624,8 @@ var create_plugin = (function () {
             init_map_layer: () => {
                 const map_handler = pgis.get_map_handler();
                 const map = map_handler.get_map();
-                m_drive_waypoints_layer = new DrivePathLayer(map, 500);
-                m_drive_waypoints_layer.add_click_callback((event_data, feature) => {
+                m_waypoints_layer = new WaypointsLayer(map, 500);
+                m_waypoints_layer.add_click_callback((event_data, feature) => {
                     m_selected_points = [];
                     if(feature){
                         m_selected_points.push(feature);
@@ -580,19 +635,31 @@ var create_plugin = (function () {
 				if(m_options.webdis_url){//webdis
 
 					const socket = new WebSocket(m_options.webdis_url);
-
-					socket.onmessage = function(event) {
-						const data = JSON.parse(event.data);
-						if(data["GET"]){
-                            m_drive_waypoints = JSON.parse(data["GET"]);
-                            m_drive_waypoints_layer.refresh();
-						}
-					};
 			
 					socket.onopen = function() {
 						console.log("webdis connection established");
-						if(m_options.auto_drive_waypoints_key){
-							socket.send(JSON.stringify(["GET", m_options.auto_drive_waypoints_key]));
+						if(m_options.auto_drive_key){
+                            socket.onmessage = function(event) {
+                                const data = JSON.parse(event.data);
+                                if(data["GET"]){
+                                    m_waypoints = JSON.parse(data["GET"]);
+                                    m_waypoints_layer.set_waypoints(m_waypoints);
+                                }
+                            };
+							socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-waypoints"]));
+                            setInterval(() => {
+                                socket.onmessage = function(event) {
+                                    const data = JSON.parse(event.data);
+                                    if(data["GET"]){
+                                        const cur = parseInt(data["GET"]);
+                                        if(cur != m_cur){
+                                            m_cur = cur;
+                                            m_waypoints_layer.set_cur(m_cur);
+                                        }
+                                    }
+                                };
+                                socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-cur"]));
+                            }, 1000);
 						}
 					};
 			
