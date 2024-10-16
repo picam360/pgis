@@ -5,6 +5,16 @@ const BLE_SRV_PSERVER_C_RX = "70333681-7067-0000-0001-000000000001";
 const BLE_SRV_PSERVER_C_TX = "70333682-7067-0000-0001-000000000001";
 const BLE_CONN_RETRY_MS = 6000;
 
+class IBLECamera {
+    constructor() {
+        if (this.constructor === IBLECamera) {
+            throw new Error('interface can not be called as class');
+        }
+    }
+    take_picture(cbRes) { throw new Error('not implemented'); }
+    m_is_abend() { throw new Error('not implemented'); }
+}
+
 const bleCam_Pserver = class extends IBLECamera {
     constructor(options) {
         super();
@@ -191,6 +201,7 @@ const bleCam_Pserver = class extends IBLECamera {
 var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
+    var m_pserver_ble = null;
 
 	return function(plugin_host) {
 		//debugger;
@@ -199,6 +210,239 @@ var create_plugin = (function() {
 		var plugin = {
 			init_options : function(options) {
 				m_options = options;
+
+                setTimeout(() => {
+                    document.getElementById('config-btn').addEventListener('click', function () {
+                        plugin.open_config();
+                    });
+                }, 1000);
+            },
+            connect_ble : () => {
+                var rtk_plugin = m_plugin_host.get_plugin("rtk");
+                if(rtk_plugin){
+                    rtk.set_ble_server_connect_options({
+                        optionalServices : [ BLE_SRV_PSERVER ],
+                        callback : async (ble_device, ble_server) => {
+                            m_ble_server = ble_server;
+                            if (m_options.name == "pserver"){
+                                if(!bleCam_Pserver){
+                                    alert("pserver_ble.js might not be loaded.");
+                                    return;
+                                }
+                                var options = {
+                                    device : ble_device,
+                                    server : ble_server,
+                                };
+                                m_pserver_ble = new bleCam_Pserver(options);
+                                m_pserver_ble.start_connect(() => {
+                                    console.log("connect pserver_ble device");
+                                }, () => {
+                                    console.log("connect pserver_ble server");
+                                });
+                            }
+                        }
+                    });
+                    rtk_plugin.start_rtk();
+                }else{
+                    let set_onclick = () => {
+                        let btn = document.getElementById("start-dialog-close-btn");
+                        btn.onclick = () => {
+                            var options = {
+                                device : null,
+                                server : null,
+                            };
+                            m_pserver_ble = new bleCam_Pserver(options);
+                            m_pserver_ble.start_connect(() => {
+                                console.log("connect pserver_ble device");
+                            }, () => {
+                                console.log("connect pserver_ble server");
+                            });
+                            document.getElementById('start-dialog').remove();
+                        };
+                    };
+                    ons.createElement('start-dialog.html', { append: true })
+                    .then(function (dialog) {
+                        set_onclick();
+                        dialog.show();
+                    });
+                }
+            },
+            open_apmode_config : () => {
+                ons.createElement('apmode-dialog.html', { append: true })
+                .then(function (dialog) {
+
+                    $("#reset-btn").click(function() {
+                        m_pserver_ble.reset_wifi((result) => {
+                            if(result == "SUCCEEDED"){
+                                alert("Wifi Reset Succeeded!");
+                            }else{
+                                alert("Wifi Reset Failed!");
+                            }
+                            $("#apmode-dialog")[0].remove();
+                        });
+                    });
+
+                    $("#connect-btn").click(function() {
+                        let ssid = $("#ssid").val();
+                        let password = $("#password").val();
+                        let ipaddress = $("#ipaddress").val();
+                        if(!ipaddress){
+                            ipaddress = "1";
+                        }
+
+                        m_pserver_ble.enable_apmode(ipaddress, ssid, password, (result) => {
+                            if(result == "SUCCEEDED"){
+                                alert("AP Mode Succeeded!");
+                            }else{
+                                alert("AP Mode Failed!");
+                            }
+                            $("#apmode-dialog")[0].remove();
+                        });
+                    });
+                
+                    $("#cancel-btn").click(function() {
+                        $("#apmode-dialog")[0].remove();
+                    });
+
+                    dialog.show();
+                });
+            },
+            open_wifi_config : () => {
+                m_pserver_ble.get_ssid((current_ssid) => {
+                    m_pserver_ble.get_wifi_networks((list) => {
+                        ons.createElement('wifi-dialog.html', { append: true })
+                        .then(function (dialog) {
+
+                            const ssidSelect = $("#ssid-select")[0];
+                            list.forEach(ssid => {
+                                const selected = (ssid == current_ssid);
+                                ssidSelect.options.add(new Option(ssid, ssid, selected, selected));
+                            });
+                            {//AP MODE
+                                ssidSelect.options.add(new Option("@AP_MODE@", "@AP_MODE@", false, false));
+                            }
+
+                            $("#connect-btn").click(function() {
+                                const ssid = $("#ssid-select").val();
+                                const password = $("#password").val();
+
+                                m_pserver_ble.connect_wifi(ssid, password, (result) => {
+                                    if(result == "SUCCEEDED"){
+                                        alert("Wifi Connection Succeeded!");
+                                    }else{
+                                        alert("Wifi Connection Failed!");
+                                    }
+                                    $("#wifi-dialog")[0].remove();
+                                });
+                            });
+                        
+                            $("#cancel-btn").click(function() {
+                                $("#wifi-dialog")[0].remove();
+                            });
+
+                            dialog.show();
+                        });
+                    });
+                });
+            },
+            open_config : () => {
+                ons.createElement('config-dialog.html', { append: true })
+                .then(function (dialog) {
+                    $("#config-dialog-default-btn").hide();
+
+                    if(m_options.url){
+                        document.getElementById('camera-url').value = m_options.url;
+                    }
+                    
+                    function isValidIPAddress(ip) {
+                        const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$/;
+                        return ipv4Regex.test(ip);
+                    }
+
+                    var ip_timer = setInterval(() => {
+                        if(m_pserver_ble){
+                            m_pserver_ble.get_ip((ip) => {
+                                if(!isValidIPAddress(ip)){
+                                    return;
+                                }
+                                document.getElementById('camera-url').value = `https://${ip}:9002`;
+                            });
+                        }
+    
+                    }, 1000);
+
+                    var connect_ble = m_options.connect_ble;
+                    $("#ble-btn").css('background-color', (connect_ble ? 'steelblue' : 'white'));
+                    document.getElementById('ble-btn').addEventListener('click', function () {
+                        if(!connect_ble){
+                            connect_ble = true;
+                            if(!m_pserver_ble){
+                                plugin.connect_ble();
+                            }
+                            $("#ble-btn").css('background-color', 'steelblue');
+                        }else{
+                            connect_ble = false;
+                            $("#ble-btn").css('background-color', 'white');
+                        }
+                    });
+
+                    if(m_pserver_ble){
+                        m_pserver_ble.get_ip((ip) => {
+                            if(ip.startsWith("ERROR_NO_RESPONSE")){
+                                return;
+                            }
+                            $("#wifi-btn").show();
+
+                            
+                            let pressTimer = 0;
+                            const threshold = 3000;
+                            document.getElementById('wifi-btn').addEventListener('mousedown', () => {
+                                pressTimer = setTimeout(() => {
+                                    pressTimer = 0;
+                                    plugin.open_apmode_config();
+                                }, threshold);
+                            });
+                            
+                            document.getElementById('wifi-btn').addEventListener('mouseup', function () {
+                                if(pressTimer){
+                                    clearTimeout(pressTimer);
+                                    pressTimer = 0;
+                                    plugin.open_wifi_config();
+                                }
+                            });
+                        });
+
+                        var rtk_plugin = m_plugin_host.get_plugin("rtk");
+                        if(rtk_plugin){
+                            $("#rtk-btn").show();
+                        
+                            document.getElementById('rtk-btn').addEventListener('click', function () {
+                                $("#config-dialog")[0].remove();
+                                rtk_plugin.open_base_setting_config_page();
+                            });
+                        }
+                    }
+                
+                    $("#config-dialog-ok-btn").click(function() {
+                        m_options.url = document.getElementById('camera-url').value;
+                        m_permanent_options.url = m_options.url;
+
+                        m_options.connect_ble = connect_ble;
+                        m_permanent_options.connect_ble = m_options.connect_ble;
+
+						localStorage.setItem('camera_js_options', JSON.stringify(m_permanent_options));
+
+                        clearInterval(ip_timer);
+                        $("#config-dialog")[0].remove();
+                    });
+                
+                    $("#config-dialog-close-btn").click(function() {
+                        clearInterval(ip_timer);
+                        $("#config-dialog")[0].remove();
+                    });
+
+                    dialog.show();
+                });
             },
 		};
 		return plugin;

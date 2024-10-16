@@ -315,11 +315,6 @@ var create_plugin = (function () {
                                 }
                             });
 
-                            document.getElementById('config-btn').addEventListener('click', function () {
-                                plugin.open_config();
-                            });
-
-
                             document.getElementById('view-btn').addEventListener('click', function () {
                                 plugin.open_pviewer();
                             });
@@ -671,7 +666,7 @@ var create_plugin = (function () {
 						console.log(`Error: ${error.message}`);
 					};
 				}
-            }
+            },
         };
         return plugin;
     }
