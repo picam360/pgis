@@ -379,6 +379,9 @@ var create_plugin = (function () {
                             if(m_options.webdis_url && m_options.pst_channel){//webdis
                                 plugin.subscribe_pst();
                             }
+                            if(m_options.webdis_url && m_options.info_channel){//webdis
+                                plugin.subscribe_info();
+                            }
                         }, 1000)
                     }
                 }
@@ -585,6 +588,44 @@ var create_plugin = (function () {
                     console.log("webdis connection established");
                     if(m_options.pst_channel){
                         socket.send(JSON.stringify(["SUBSCRIBE", m_options.pst_channel]));
+                    }
+                };
+        
+                socket.onclose = function() {
+                    console.log("webdis connection closed");
+                };
+        
+                socket.onerror = function(error) {
+                    console.log(`Error: ${error.message}`);
+                };
+            },
+            subscribe_info: () => {
+
+                const socket = new WebSocket(m_options.webdis_url);
+
+                socket.onmessage = function(event) {
+                    const msg = JSON.parse(event.data);
+                    if(!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.info_channel){
+                        return;
+                    }
+
+                    const info = JSON.parse(msg["SUBSCRIBE"][2]);
+                    switch(info.state){
+                    case "DONE":
+                        plugin.update_value('auto-drive-waypoint-distance', '-');
+                        plugin.update_value('auto-drive-heading-error', '-');
+                        break;
+                    case "DRIVING":
+                        plugin.update_value('auto-drive-waypoint-distance', info.waypoint_distance.toFixed(3));
+                        plugin.update_value('auto-drive-heading-error', info.heading_error.toFixed(3));
+                        break;
+                    }
+                };
+        
+                socket.onopen = function() {
+                    console.log("webdis connection established");
+                    if(m_options.info_channel){
+                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.info_channel]));
                     }
                 };
         
