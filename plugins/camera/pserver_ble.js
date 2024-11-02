@@ -201,6 +201,7 @@ const bleCam_Pserver = class extends IBLECamera {
 var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
+    var m_permanent_options = {};
     var m_pserver_ble = null;
 
 	return function(plugin_host) {

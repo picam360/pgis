@@ -1,14 +1,4 @@
 
-class IBLECamera {
-    constructor() {
-        if (this.constructor === IBLECamera) {
-            throw new Error('interface can not be called as class');
-        }
-    }
-    take_picture(cbRes) { throw new Error('not implemented'); }
-    m_is_abend() { throw new Error('not implemented'); }
-}
-
 var create_plugin = (function() {
 	var m_plugin_host = null;
 	var m_options = null;
