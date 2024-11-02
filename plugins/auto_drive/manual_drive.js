@@ -45,7 +45,7 @@ var create_plugin = (function() {
 				}
 			}
 			if(m_socket){
-				m_socket.send(JSON.stringify(["PUBLISH", m_options.manual_drive_key, cmd]));
+				m_socket.send(JSON.stringify(["PUBLISH", m_options.manual_drive_key, `CMD ${cmd}`]));
 			}
 		}, 100);
 	}
@@ -64,7 +64,7 @@ var create_plugin = (function() {
                 if (pgis === sender) {
                     if (key === "loaded") {
                         setTimeout(() => {
-                            if(m_options.webdis_url && m_options.pst_channel){//webdis
+                            if(m_options.webdis_url && m_options.manual_drive_key){//webdis
                                 const socket = new WebSocket(m_options.webdis_url);
 
                                 let tmp_img = [];
