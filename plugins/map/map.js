@@ -255,10 +255,11 @@ var create_plugin = (function () {
             init_options: function (options) {
                 m_options = options || {};
                 if(m_options.tileserver_url){
-                    if(m_options.tileserver_url.endsWith('.png')){
+                    const url = m_options.tileserver_url.replace("${window.location.hostname}", window.location.hostname);
+                    if(url.endsWith('.png')){
                         m_map_handler._tile_layer = new ol.layer.Tile({
                             source: new ol.source.XYZ({
-                                url: m_options.tileserver_url,
+                                url: url,
                                 tileSize: 256
                             })
                         });
@@ -267,7 +268,7 @@ var create_plugin = (function () {
                             new MapLibreLayer({
                                 opacity: 0.7,
                                 maplibreOptions: {
-                                    style: m_options.tileserver_url,
+                                    style: url,
                                 },
                             });
                     }
