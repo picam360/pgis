@@ -1,0 +1,24 @@
+var pgis_conf = {
+	"plugin_paths" : [
+		"plugins/map/map.js",
+		"plugins/auto_drive/auto_drive.js",
+//		"plugins/auto_drive/manual_drive.js",
+		"plugins/camera/osc.js",
+		"plugins/camera/pserver_ble.js",
+		"plugins/ui/gamepad.js",
+	],
+	"map" : {
+		"tileserver_url" : "http://${window.location.hostname}:9111/styles/basic-preview/256/{z}/{x}/{y}.png",
+	},
+	"manual_drive" : {
+		"webdis_url" : "ws://localhost:7379",
+		"manual_drive_key" : "pserver-vehicle-wheel",
+	},
+	"auto_drive" : {
+		"load_html" : true,
+		"webdis_url" : "ws://localhost:7379",
+		"pst_channel" : "pserver-vslam-pst",
+		"auto_drive_key" : "pserver-auto-drive",
+		"info_channel" : "pserver-auto-drive-info",
+	},
+}
