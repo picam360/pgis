@@ -1,10 +1,10 @@
 var create_plugin = (function() {
 	var m_plugin_host = null;
     let m_socket = null;
-	var m_is_init = false;
+	var m_is_started = false;
 	var m_gamepad_state = {};
 
-	function init() {
+	function start() {
 		setInterval(() => {
 			var cmd = "";
 			let foward_gain = 0.0;
@@ -51,10 +51,6 @@ var create_plugin = (function() {
 	}
 	return function(plugin_host) {
 		m_plugin_host = plugin_host;
-		if (!m_is_init) {
-			m_is_init = true;
-			init();
-		}
 		var plugin = {
             name: "manual_drive",
             init_options: function (options) {
@@ -97,6 +93,12 @@ var create_plugin = (function() {
 					return;
 				}
 				m_gamepad_state = new_state;
+				if(m_gamepad_state["11_BUTTON_PUSHED"]){
+					if (!m_is_started) {
+						m_is_started = true;
+						start();
+					}
+				}
 			},
 		};
 		return plugin;
