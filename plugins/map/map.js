@@ -254,12 +254,12 @@ var create_plugin = (function () {
             name: "map",
             init_options: function (options) {
                 m_options = options || {};
+                m_options = JSON.parse(JSON.stringify(m_options).replace("${window.location.hostname}", window.location.hostname));
                 if(m_options.tileserver_url){
-                    const url = m_options.tileserver_url.replace("${window.location.hostname}", window.location.hostname);
-                    if(url.endsWith('.png')){
+                    if(m_options.tileserver_url.endsWith('.png')){
                         m_map_handler._tile_layer = new ol.layer.Tile({
                             source: new ol.source.XYZ({
-                                url: url,
+                                url: m_options.tileserver_url,
                                 tileSize: 256
                             })
                         });
@@ -268,7 +268,7 @@ var create_plugin = (function () {
                             new MapLibreLayer({
                                 opacity: 0.7,
                                 maplibreOptions: {
-                                    style: url,
+                                    style: m_options.tileserver_url,
                                 },
                             });
                     }

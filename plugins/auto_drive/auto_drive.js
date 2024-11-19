@@ -277,6 +277,7 @@ var create_plugin = (function () {
             name: "auto_drive",
             init_options: function (options) {
                 m_options = options || {};
+                m_options = JSON.parse(JSON.stringify(m_options).replace("${window.location.hostname}", window.location.hostname));
                 if(m_options && m_options.load_html){
                     m_plugin_host.getFile("plugins/auto_drive/auto_drive.html", function(
                         chunk_array) {

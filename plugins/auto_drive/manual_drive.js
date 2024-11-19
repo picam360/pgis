@@ -55,6 +55,7 @@ var create_plugin = (function() {
             name: "manual_drive",
             init_options: function (options) {
                 m_options = options || {};
+                m_options = JSON.parse(JSON.stringify(m_options).replace("${window.location.hostname}", window.location.hostname));
 			},
 			event_handler : (sender, key, new_state) => {
                 if (pgis === sender) {
