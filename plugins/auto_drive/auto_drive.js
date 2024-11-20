@@ -87,7 +87,7 @@ var create_plugin = (function () {
             this.m_click_callback = [];
             this.m_z_idx = z_idx;
             this.m_waypoints = null;
-            this.m_cur = 0;
+            this.m_cur = -1;
             this._init();
         }
         _init() {
