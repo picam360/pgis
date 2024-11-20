@@ -4,7 +4,7 @@ var create_plugin = (function () {
     let m_waypoints_layer = null;
     let m_selected_points = [];
     let m_waypoints = {};
-    let m_cur = 0;
+    let m_cur = -1;
     let m_socket = null;
 
     function _convert_DMS_to_deg(input_str) {
@@ -87,7 +87,7 @@ var create_plugin = (function () {
             this.m_click_callback = [];
             this.m_z_idx = z_idx;
             this.m_waypoints = null;
-            this.m_cur = -1;
+            this.m_cur = 0;
             this._init();
         }
         _init() {
