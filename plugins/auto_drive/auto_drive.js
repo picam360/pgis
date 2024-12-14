@@ -371,27 +371,15 @@ var create_plugin = (function () {
 
                             document.getElementById('play-btn').addEventListener('click', function () {
                                 if(m_is_auto_drive){
-                                    console.log("auto-drive stop");
-                                    m_is_auto_drive = false;
-                                    document.getElementById('play-btn').style.backgroundImage = 'var(--icon-play-64)';
                                     plugin.stop_auto_drive();
                                 }else{
-                                    console.log("auto-drive start");
-                                    m_is_auto_drive = true;
-                                    document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
                                     plugin.start_auto_drive();
                                 }
                             });
                             document.getElementById('record-btn').addEventListener('click', function () {
                                 if(m_is_record_path){
-                                    console.log("path-record stop");
-                                    m_is_record_path = false;
-                                    document.getElementById('record-btn').style.backgroundImage = 'var(--icon-record-64)';
                                     plugin.stop_record_path();
                                 }else{
-                                    console.log("path-record start");
-                                    m_is_record_path = true;
-                                    document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
                                     plugin.start_record_path();
                                 }
                             });
@@ -697,6 +685,7 @@ var create_plugin = (function () {
                     case "DONE":
                         plugin.update_value('auto-drive-waypoint-distance', '-');
                         plugin.update_value('auto-drive-heading-error', '-');
+                        plugin.stop_auto_drive();
                         break;
                     case "DRIVING":
                         plugin.update_value('auto-drive-waypoint-distance', info.waypoint_distance.toFixed(3));
@@ -721,23 +710,35 @@ var create_plugin = (function () {
                 };
             },
             start_record_path: () => {
+                console.log("path-record start");
+                m_is_record_path = true;
+                document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_RECORD"]));
                 }
                 m_active_path_layer.clear();
             },
             stop_record_path: () => {
+                console.log("path-record stop");
+                m_is_record_path = false;
+                document.getElementById('record-btn').style.backgroundImage = 'var(--icon-record-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD STOP_RECORD"]));
                 }
             },
             start_auto_drive: () => {
+                console.log("auto-drive start");
+                m_is_auto_drive = true;
+                document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_AUTO"]));
                 }
                 m_active_path_layer.clear();
             },
             stop_auto_drive: () => {
+                console.log("auto-drive stop");
+                m_is_auto_drive = false;
+                document.getElementById('play-btn').style.backgroundImage = 'var(--icon-play-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD STOP_AUTO"]));
                 }
