@@ -150,7 +150,7 @@ var create_plugin = (function () {
                     obj[value] = this.m_waypoints[key];
                 }
             }
-            keys.sort();
+            keys.sort((a, b) => a - b);
             for (let i in keys) {
                 const key = keys[i];
                 const p = obj[key];
@@ -201,7 +201,7 @@ var create_plugin = (function () {
                     obj[value] = this.m_waypoints[key];
                 }
             }
-            keys.sort();
+            keys.sort((a, b) => a - b);
             const key = keys[cur];
             const p = obj[key];
             if(!p || !p.nmea){
