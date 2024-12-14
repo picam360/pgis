@@ -42,7 +42,7 @@ var create_plugin = (function () {
                         color: 'white', // 中の色を白に設定
                     }),
                     stroke: new ol.style.Stroke({
-                        color: 'red', // 縁取りの色を赤に設定
+                        color: 'green', // 縁取りの色を赤に設定
                         width: 6, // 縁取りの幅を設定
                     }),
                 }),

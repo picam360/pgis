@@ -2,6 +2,7 @@ var create_plugin = (function () {
     let m_plugin_host = null;
     let m_options = null;
     let m_waypoints_layer = null;
+    let m_active_path_layer = null;
     let m_selected_points = [];
     let m_waypoints = {};
     let m_cur = -1;
@@ -178,7 +179,7 @@ var create_plugin = (function () {
             const lineStyle = new ol.style.Style({
                 stroke: new ol.style.Stroke({
                     color: '#FF0000',
-                    width: 1
+                    width: 5
                 })
             });
             lineFeature.setStyle(lineStyle);
@@ -268,9 +269,90 @@ var create_plugin = (function () {
             this.m_click_callback.push(callback);
         }
     }
+    class ActivePathLayer {
+        constructor(map, z_idx) {
+            this.m_map = map;
+            this.m_vector_src = null;
+            this.m_tri_style = null;
+            this.m_clicked_tri_style = null;
+            this.m_layer = null;
+            this.m_click_callback = [];
+            this.m_z_idx = z_idx;
+            this.m_waypoints = null;
+            this.m_cur = 0;
+            this._init();
+        }
+        _init() {
+            this.m_vector_src = new ol.source.Vector();
+
+            this.m_tri_style = new ol.style.Style({
+                image: new ol.style.RegularShape({
+                    fill: new ol.style.Fill({
+                        color: 'green'
+                    }),
+                    points: 6,
+                    radius: 1,
+                    angle: Math.PI / 180
+                })
+            });
+
+            this.m_layer = new ol.layer.Vector({
+                source: this.m_vector_src,
+                zIndex: this.m_z_idx,
+                style: this.m_tri_style
+            });
+
+            this.m_map.addLayer(this.m_layer);
+            
+            const points = [];
+
+            this.m_lineString = new ol.geom.LineString(points);
+            this.m_lineFeature = new ol.Feature({
+                geometry: this.m_lineString
+            });
+            const lineStyle = new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: '#00FF00',
+                    width: 2
+                })
+            });
+            this.m_lineFeature.setStyle(lineStyle);
+            this.m_vector_src.addFeature(this.m_lineFeature);
+        }
+        push_nmea(nmea) {
+            if(!this.m_lineString){
+                return;
+            }
+            const ary = nmea.split(',');
+            if(!ary[4] || !ary[2]){
+                return;
+            }
+            const lon = _convert_DMS_to_deg(ary[4]);
+            const lat = _convert_DMS_to_deg(ary[2]);
+            const point = ol.proj.fromLonLat([lon, lat]);
+
+            this.m_vector_src.removeFeature(this.m_lineFeature);
+
+            const currentCoordinates = this.m_lineString.getCoordinates();
+            currentCoordinates.push(point);
+            this.m_lineString.setCoordinates(currentCoordinates);
+
+            this.m_vector_src.addFeature(this.m_lineFeature);
+        }
+        clear(){
+
+            this.m_vector_src.removeFeature(this.m_lineFeature);
+
+            this.m_lineString.setCoordinates([]);
+            
+            this.m_vector_src.addFeature(this.m_lineFeature);
+        }
+    }
 
     return function (plugin_host) {
         //debugger;
+        let m_is_auto_drive = false;
+        let m_is_record_path = false;
         m_plugin_host = plugin_host;
 
         const plugin = {
@@ -287,30 +369,28 @@ var create_plugin = (function () {
                         fn.load('auto_drive.html', () => {		
                             console.log('auto_drive.html loaded');
 
-                            let is_auto_drive = false;
                             document.getElementById('play-btn').addEventListener('click', function () {
-                                if(is_auto_drive){
+                                if(m_is_auto_drive){
                                     console.log("auto-drive stop");
-                                    is_auto_drive = false;
+                                    m_is_auto_drive = false;
                                     document.getElementById('play-btn').style.backgroundImage = 'var(--icon-play-64)';
                                     plugin.stop_auto_drive();
                                 }else{
                                     console.log("auto-drive start");
-                                    is_auto_drive = true;
+                                    m_is_auto_drive = true;
                                     document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
                                     plugin.start_auto_drive();
                                 }
                             });
-                            let is_record_path = false;
                             document.getElementById('record-btn').addEventListener('click', function () {
-                                if(is_record_path){
+                                if(m_is_record_path){
                                     console.log("path-record stop");
-                                    is_record_path = false;
+                                    m_is_record_path = false;
                                     document.getElementById('record-btn').style.backgroundImage = 'var(--icon-record-64)';
                                     plugin.stop_record_path();
                                 }else{
                                     console.log("path-record start");
-                                    is_record_path = true;
+                                    m_is_record_path = true;
                                     document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
                                     plugin.start_record_path();
                                 }
@@ -566,6 +646,8 @@ var create_plugin = (function () {
                                 plugin.update_value('gps-latitude', num_format(gga.latitude, 3, 7));//7:cm order
                                 plugin.update_value('gps-longitude', num_format(gga.longitude, 3, 7));//7:cm order
 
+                                m_active_path_layer.push_nmea(nmea);
+
                                 const img = document.getElementById('img-left-top');
                                 img.src = 'data:image/jpeg;base64,' + tmp_img[2];
 
@@ -642,6 +724,7 @@ var create_plugin = (function () {
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_RECORD"]));
                 }
+                m_active_path_layer.clear();
             },
             stop_record_path: () => {
                 if(m_socket){
@@ -652,6 +735,7 @@ var create_plugin = (function () {
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_AUTO"]));
                 }
+                m_active_path_layer.clear();
             },
             stop_auto_drive: () => {
                 if(m_socket){
@@ -668,6 +752,7 @@ var create_plugin = (function () {
                         m_selected_points.push(feature);
                     }
                 });
+                m_active_path_layer = new ActivePathLayer(map, 501);
 
 				if(m_options.webdis_url){//webdis
 
