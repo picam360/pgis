@@ -273,6 +273,14 @@ var create_plugin = (function () {
         constructor(map, z_idx) {
             this.m_map = map;
             this.m_vector_src = null;
+            this.m_lineString = null;
+            this.m_lineString_gps = null;
+            this.m_lineString_encoder = null;
+            this.m_lineString_vslam = null;
+            this.m_lineFeature = null;
+            this.m_lineFeature_gps = null;
+            this.m_lineFeature_encoder = null;
+            this.m_lineFeature_vslam = null;
             this.m_tri_style = null;
             this.m_clicked_tri_style = null;
             this.m_layer = null;
@@ -303,21 +311,54 @@ var create_plugin = (function () {
             });
 
             this.m_map.addLayer(this.m_layer);
-            
-            const points = [];
 
-            this.m_lineString = new ol.geom.LineString(points);
+            this.m_lineString = new ol.geom.LineString([]);
             this.m_lineFeature = new ol.Feature({
                 geometry: this.m_lineString
             });
-            const lineStyle = new ol.style.Style({
+            this.m_lineFeature.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
                     color: '#00FF00',
                     width: 2
                 })
-            });
-            this.m_lineFeature.setStyle(lineStyle);
+            }));
             this.m_vector_src.addFeature(this.m_lineFeature);
+
+            this.m_lineString_gps = new ol.geom.LineString([]);
+            this.m_lineFeature_gps = new ol.Feature({
+                geometry: this.m_lineString_gps
+            });
+            this.m_lineFeature_gps.setStyle(new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: '#00FF00',
+                    width: 2
+                })
+            }));
+            this.m_vector_src.addFeature(this.m_lineFeature_gps);
+
+            this.m_lineString_encoder = new ol.geom.LineString([]);
+            this.m_lineFeature_encoder = new ol.Feature({
+                geometry: this.m_lineString_encoder
+            });
+            this.m_lineFeature_encoder.setStyle(new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: '#00FFFF',
+                    width: 2
+                })
+            }));
+            this.m_vector_src.addFeature(this.m_lineFeature_encoder);
+
+            this.m_lineString_vslam = new ol.geom.LineString([]);
+            this.m_lineFeature_vslam = new ol.Feature({
+                geometry: this.m_lineString
+            });
+            this.m_lineFeature.setStyle(new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: '#FFFFFF',
+                    width: 2
+                })
+            }));
+            this.m_vector_src.addFeature(this.m_lineFeature_vslam);
         }
         push_nmea(nmea) {
             if(!this.m_lineString){
@@ -342,10 +383,16 @@ var create_plugin = (function () {
         clear(){
 
             this.m_vector_src.removeFeature(this.m_lineFeature);
+            this.m_vector_src.removeFeature(this.m_lineFeature_gps);
+            this.m_vector_src.removeFeature(this.m_lineFeature_encoder);
+            this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
 
             this.m_lineString.setCoordinates([]);
             
             this.m_vector_src.addFeature(this.m_lineFeature);
+            this.m_vector_src.removeFeature(this.m_lineFeature_gps);
+            this.m_vector_src.removeFeature(this.m_lineFeature_encoder);
+            this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
         }
     }
 
@@ -631,8 +678,7 @@ var create_plugin = (function () {
                                 const gga = new GGAParser(nmea);
                                 pgis.get_gps_handler().set_current_position(gga.latitude, gga.longitude);
                                 plugin.update_info_box(gga);
-                                plugin.update_value('gps-latitude', num_format(gga.latitude, 3, 7));//7:cm order
-                                plugin.update_value('gps-longitude', num_format(gga.longitude, 3, 7));//7:cm order
+                                plugin.update_value('gps-latlon', `${num_format(gga.latitude, 3, 7)}, ${num_format(gga.longitude, 3, 7)}`);//7:cm order
 
                                 m_active_path_layer.push_nmea(nmea);
 
@@ -640,8 +686,7 @@ var create_plugin = (function () {
                                 img.src = 'data:image/jpeg;base64,' + tmp_img[2];
 
                                 const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
-                                plugin.update_value('encoder-left', encoder.left);
-                                plugin.update_value('encoder-right', encoder.right);
+                                plugin.update_value('encoder-value', `${encoder.left}, ${encoder.right}`);
 
                                 const imu = JSON.parse(frame["picam360:frame"]["passthrough:imu"]);
                                 plugin.update_value('imu-heading', num_format(imu.heading, 3, 7));
@@ -685,11 +730,18 @@ var create_plugin = (function () {
                     case "DONE":
                         plugin.update_value('auto-drive-waypoint-distance', '-');
                         plugin.update_value('auto-drive-heading-error', '-');
+                        plugin.update_value('encoder-xyh', '-');
+                        plugin.update_value('gps-xyh', '-');
                         plugin.stop_auto_drive();
                         break;
                     case "DRIVING":
-                        plugin.update_value('auto-drive-waypoint-distance', info.waypoint_distance.toFixed(3));
-                        plugin.update_value('auto-drive-heading-error', info.heading_error.toFixed(3));
+                        const { GPS, ENCODER, VSLAM } = info.handlers;
+                        const dist_key = "waypoint_distance";
+                        const head_key = "heading_error";
+                        plugin.update_value('auto-drive-waypoint-distance', `${GPS[dist_key].toFixed(3)}, ${ENCODER[dist_key].toFixed(3)}, ${VSLAM[dist_key] ? VSLAM[dist_key].toFixed(3) : "-"}`);
+                        plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] ? VSLAM[head_key].toFixed(3) : "-"}`);
+                        plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
+                        plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
                         break;
                     }
                 };
