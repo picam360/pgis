@@ -454,7 +454,7 @@ var create_plugin = (function () {
             this.m_vector_src.removeFeature(this.m_lineFeature_encoder);
             this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
 
-            this.m_base_point();
+            this.m_base_point = null;
         }
     }
 
