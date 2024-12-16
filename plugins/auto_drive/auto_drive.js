@@ -352,7 +352,7 @@ var create_plugin = (function () {
 
             this.m_lineString_vslam = new ol.geom.LineString([]);
             this.m_lineFeature_vslam = new ol.Feature({
-                geometry: this.m_lineString
+                geometry: this.m_lineString_vslam
             });
             this.m_lineFeature_vslam.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
@@ -792,18 +792,20 @@ var create_plugin = (function () {
                     case "DONE":
                         plugin.update_value('auto-drive-waypoint-distance', '-');
                         plugin.update_value('auto-drive-heading-error', '-');
-                        plugin.update_value('encoder-xyh', '-');
                         plugin.update_value('gps-xyh', '-');
+                        plugin.update_value('encoder-xyh', '-');
+                        plugin.update_value('vslam-xyh', '-');
                         plugin.stop_auto_drive();
                         break;
                     case "DRIVING":
                         const { GPS, ENCODER, VSLAM } = info.handlers;
                         const dist_key = "waypoint_distance";
                         const head_key = "heading_error";
-                        plugin.update_value('auto-drive-waypoint-distance', `${GPS[dist_key].toFixed(3)}, ${ENCODER[dist_key].toFixed(3)}, ${VSLAM[dist_key] ? VSLAM[dist_key].toFixed(3) : "-"}`);
-                        plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] ? VSLAM[head_key].toFixed(3) : "-"}`);
-                        plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
+                        plugin.update_value('auto-drive-waypoint-distance', `${GPS[dist_key].toFixed(3)}, ${ENCODER[dist_key].toFixed(3)}, ${VSLAM[dist_key] !== undefined ? VSLAM[dist_key].toFixed(3) : "-"}`);
+                        plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] !== undefined ? VSLAM[head_key].toFixed(3) : "-"}`);
                         plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
+                        plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
+                        plugin.update_value('vslam-xyh', `${VSLAM.x !== undefined ? VSLAM.x.toFixed(3) : "-"}, ${VSLAM.y !== undefined ? VSLAM.y.toFixed(3) : "-"}, ${VSLAM.heading !== undefined ? VSLAM.heading.toFixed(3) : "-"}`);
                         
                         m_active_path_layer.push_gps_position(GPS);
                         m_active_path_layer.push_encoder_position(ENCODER);
