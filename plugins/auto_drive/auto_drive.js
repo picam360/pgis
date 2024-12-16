@@ -287,6 +287,8 @@ var create_plugin = (function () {
             this.m_click_callback = [];
             this.m_z_idx = z_idx;
             this.m_waypoints = null;
+            this.m_base_x = 0;
+            this.m_base_y = 0;
             this.m_cur = 0;
             this._init();
         }
@@ -330,7 +332,7 @@ var create_plugin = (function () {
             });
             this.m_lineFeature_gps.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                    color: '#00FF00',
+                    color: '#FFFF00',
                     width: 2
                 })
             }));
@@ -352,12 +354,63 @@ var create_plugin = (function () {
             this.m_lineFeature_vslam = new ol.Feature({
                 geometry: this.m_lineString
             });
-            this.m_lineFeature.setStyle(new ol.style.Style({
+            this.m_lineFeature_vslam.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
                     color: '#FFFFFF',
                     width: 2
                 })
             }));
+            this.m_vector_src.addFeature(this.m_lineFeature_vslam);
+        }
+        push_gps_position(pos) {
+            if(!this.m_base_point || !pos || pos.x === undefined || pos.y === undefined){
+                return;
+            }
+            const point = [
+                pos.x + this.m_base_point[0],
+                pos.y + this.m_base_point[1],
+            ];
+
+            this.m_vector_src.removeFeature(this.m_lineFeature_gps);
+
+            const currentCoordinates = this.m_lineString_gps.getCoordinates();
+            currentCoordinates.push(point);
+            this.m_lineString_gps.setCoordinates(currentCoordinates);
+
+            this.m_vector_src.addFeature(this.m_lineFeature_gps);
+        }
+        push_encoder_position(pos) {
+            if(!this.m_base_point || !pos || pos.x === undefined || pos.y === undefined){
+                return;
+            }
+            const point = [
+                pos.x + this.m_base_point[0],
+                pos.y + this.m_base_point[1],
+            ];
+
+            this.m_vector_src.removeFeature(this.m_lineFeature_encoder);
+
+            const currentCoordinates = this.m_lineString_encoder.getCoordinates();
+            currentCoordinates.push(point);
+            this.m_lineString_encoder.setCoordinates(currentCoordinates);
+
+            this.m_vector_src.addFeature(this.m_lineFeature_encoder);
+        }
+        push_vslam_position(pos) {
+            if(!this.m_base_point || !pos || pos.x === undefined || pos.y === undefined){
+                return;
+            }
+            const point = [
+                pos.x + this.m_base_point[0],
+                pos.y + this.m_base_point[1],
+            ];
+
+            this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
+
+            const currentCoordinates = this.m_lineString_vslam.getCoordinates();
+            currentCoordinates.push(point);
+            this.m_lineString_vslam.setCoordinates(currentCoordinates);
+
             this.m_vector_src.addFeature(this.m_lineFeature_vslam);
         }
         push_nmea(nmea) {
@@ -371,6 +424,10 @@ var create_plugin = (function () {
             const lon = _convert_DMS_to_deg(ary[4]);
             const lat = _convert_DMS_to_deg(ary[2]);
             const point = ol.proj.fromLonLat([lon, lat]);
+
+            if(!this.m_base_point){
+                this.m_base_point = point;
+            }
 
             this.m_vector_src.removeFeature(this.m_lineFeature);
 
@@ -388,11 +445,16 @@ var create_plugin = (function () {
             this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
 
             this.m_lineString.setCoordinates([]);
+            this.m_lineString_gps.setCoordinates([]);
+            this.m_lineString_encoder.setCoordinates([]);
+            this.m_lineString_vslam.setCoordinates([]);
             
             this.m_vector_src.addFeature(this.m_lineFeature);
             this.m_vector_src.removeFeature(this.m_lineFeature_gps);
             this.m_vector_src.removeFeature(this.m_lineFeature_encoder);
             this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
+
+            this.m_base_point();
         }
     }
 
@@ -742,6 +804,10 @@ var create_plugin = (function () {
                         plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] ? VSLAM[head_key].toFixed(3) : "-"}`);
                         plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
                         plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
+                        
+                        m_active_path_layer.push_gps_position(GPS);
+                        m_active_path_layer.push_encoder_position(ENCODER);
+                        m_active_path_layer.push_vslam_position(VSLAM);
                         break;
                     }
                 };
