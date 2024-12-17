@@ -463,6 +463,7 @@ var create_plugin = (function () {
         let m_is_auto_drive = false;
         let m_is_record_path = false;
         let m_shiftkey_down = false;
+        let m_waypoint_updated = true;
         m_plugin_host = plugin_host;
 
         const plugin = {
@@ -802,6 +803,11 @@ var create_plugin = (function () {
 
                     const info = JSON.parse(msg["SUBSCRIBE"][2]);
                     switch(info.state){
+                    case "WAYPOINT_UPDATED":{
+                        m_waypoint_updated = true;
+
+                        break;
+                    }
                     case "DONE":
                         plugin.update_value('auto-drive-waypoint-distance', '-');
                         plugin.update_value('auto-drive-heading-error', '-');
@@ -952,19 +958,24 @@ var create_plugin = (function () {
 				if(m_options.webdis_url){//webdis
                     {
                         const socket = new WebSocket(m_options.webdis_url);
+
+                        socket.onmessage = function(event) {
+                            const data = JSON.parse(event.data);
+                            if(data["GET"] !== undefined){
+                                m_waypoints = JSON.parse(data["GET"]);
+                                m_waypoints_layer.set_waypoints(m_waypoints);
+                            }
+                        };
                 
                         socket.onopen = function() {
                             console.log("webdis connection established");
                             if(m_options.auto_drive_key){
                                 setInterval(() => {
-                                    socket.onmessage = function(event) {
-                                        const data = JSON.parse(event.data);
-                                        if(data["GET"]){
-                                            m_waypoints = JSON.parse(data["GET"]);
-                                            m_waypoints_layer.set_waypoints(m_waypoints);
-                                        }
-                                    };
-                                    socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-waypoints"]));
+                                    if(m_waypoint_updated){
+                                        m_waypoint_updated = false;
+                                        
+                                        socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-waypoints"]));
+                                    }
                                 }, 1000);
                             }
                         };
@@ -979,21 +990,20 @@ var create_plugin = (function () {
                     }
                     {
                         const socket = new WebSocket(m_options.webdis_url);
+
+                        socket.onmessage = function(event) {
+                            const data = JSON.parse(event.data);
+                            if(data["GET"] !== undefined){
+                                const cur = parseInt(data["GET"]);
+                                m_cur = cur;
+                                m_waypoints_layer.set_cur(m_cur);
+                            }
+                        };
                 
                         socket.onopen = function() {
                             console.log("webdis connection established");
                             if(m_options.auto_drive_key){
                                 setInterval(() => {
-                                    socket.onmessage = function(event) {
-                                        const data = JSON.parse(event.data);
-                                        if(data["GET"]){
-                                            const cur = parseInt(data["GET"]);
-                                            if(cur != m_cur){
-                                                m_cur = cur;
-                                                m_waypoints_layer.set_cur(m_cur);
-                                            }
-                                        }
-                                    };
                                     socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-cur"]));
                                 }, 1000);
                             }
