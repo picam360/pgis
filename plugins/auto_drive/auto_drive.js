@@ -464,6 +464,7 @@ var create_plugin = (function () {
         let m_is_record_path = false;
         let m_shiftkey_down = false;
         let m_waypoint_updated = true;
+        let m_last_encoder = null;
         m_plugin_host = plugin_host;
 
         const plugin = {
@@ -762,7 +763,12 @@ var create_plugin = (function () {
                                 img.src = 'data:image/jpeg;base64,' + tmp_img[2];
 
                                 const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
-                                plugin.update_value('encoder-value', `${encoder.left}, ${encoder.right}`);
+                                if(m_last_encoder){
+                                    plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right} (${-(encoder.left - m_last_encoder.left)}, ${encoder.right - m_last_encoder.right})`);
+                                }else{
+                                    plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right}`);
+                                }
+                                m_last_encoder = encoder;
 
                                 const imu = JSON.parse(frame["picam360:frame"]["passthrough:imu"]);
                                 plugin.update_value('imu-heading', num_format(imu.heading, 3, 7));
@@ -973,7 +979,7 @@ var create_plugin = (function () {
                                 setInterval(() => {
                                     if(m_waypoint_updated){
                                         m_waypoint_updated = false;
-                                        
+
                                         socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-waypoints"]));
                                     }
                                 }, 1000);
