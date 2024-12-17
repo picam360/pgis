@@ -462,6 +462,7 @@ var create_plugin = (function () {
         //debugger;
         let m_is_auto_drive = false;
         let m_is_record_path = false;
+        let m_shiftkey_down = false;
         m_plugin_host = plugin_host;
 
         const plugin = {
@@ -525,6 +526,18 @@ var create_plugin = (function () {
 				pgis.get_point_handler().add_insert_callback((columns, gp) => {
 					columns['filepath'] = gp.filepath;
 				});
+
+                document.addEventListener('keydown', (event) => {
+                  if (event.shiftKey) {
+                    m_shiftkey_down = true;
+                  }
+                });
+            
+                document.addEventListener('keyup', (event) => {
+                  if (!event.shiftKey) {
+                    m_shiftkey_down = false;
+                  }
+                });
             },
             event_handler: function (sender, event) {
                 if (pgis === sender) {
@@ -913,7 +926,7 @@ var create_plugin = (function () {
                 console.log("auto-drive start");
                 //document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
                 if(m_socket){
-                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_AUTO"]));
+                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", `CMD START_AUTO ${m_shiftkey_down ? "REVERSE" : ""}`]));
                 }
                 m_active_path_layer.clear();
             },
