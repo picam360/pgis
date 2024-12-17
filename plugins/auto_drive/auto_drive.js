@@ -797,19 +797,84 @@ var create_plugin = (function () {
                         plugin.update_value('vslam-xyh', '-');
                         plugin.stop_auto_drive();
                         break;
+                    case "RECORDING":
+                        {
+                            m_is_record_path = true;
+
+                            const btn = document.getElementById('record-btn');
+                            if(!btn.timer){
+                                btn.isFading = true;
+                                btn.opacity_tmp = 1;
+                                btn.timer = setInterval(() => {
+                                    if (btn.isFading) {
+                                        btn.opacity_tmp -= 0.05; // 徐々に透明に
+                                        if (btn.opacity_tmp <= 0.3) btn.isFading = false; // 透明になったら反転
+                                    } else {
+                                        btn.opacity_tmp += 0.05; // 徐々に不透明に
+                                        if (btn.opacity_tmp >= 1) btn.isFading = true; // 不透明になったら反転
+                                    }
+                                    btn.style.opacity = btn.opacity_tmp.toString();
+                                }, 100);
+                            }
+                            if(btn.clear_timer){
+                                clearTimeout(btn.clear_timer);
+                            }
+                            btn.clear_timer = setTimeout(() => {
+                                btn.isFading = true;
+                                btn.style.opacity = "1";
+                                clearInterval(btn.timer);
+                                btn.timer = 0;
+                                btn.clear_timer = 0;
+
+                                m_is_record_path = false;
+                            }, 1000);
+                        }
+                        break;
                     case "DRIVING":
-                        const { GPS, ENCODER, VSLAM } = info.handlers;
-                        const dist_key = "waypoint_distance";
-                        const head_key = "heading_error";
-                        plugin.update_value('auto-drive-waypoint-distance', `${GPS[dist_key].toFixed(3)}, ${ENCODER[dist_key].toFixed(3)}, ${VSLAM[dist_key] !== undefined ? VSLAM[dist_key].toFixed(3) : "-"}`);
-                        plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] !== undefined ? VSLAM[head_key].toFixed(3) : "-"}`);
-                        plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
-                        plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
-                        plugin.update_value('vslam-xyh', `${VSLAM.x !== undefined ? VSLAM.x.toFixed(3) : "-"}, ${VSLAM.y !== undefined ? VSLAM.y.toFixed(3) : "-"}, ${VSLAM.heading !== undefined ? VSLAM.heading.toFixed(3) : "-"}`);
-                        
-                        m_active_path_layer.push_gps_position(GPS);
-                        m_active_path_layer.push_encoder_position(ENCODER);
-                        m_active_path_layer.push_vslam_position(VSLAM);
+                        {
+                            m_is_auto_drive = true;
+
+                            const btn = document.getElementById('play-btn');
+                            if(!btn.timer){
+                                btn.isFading = true;
+                                btn.opacity_tmp = 1;
+                                btn.timer = setInterval(() => {
+                                    if (btn.isFading) {
+                                        btn.opacity_tmp -= 0.05; // 徐々に透明に
+                                        if (btn.opacity_tmp <= 0.3) btn.isFading = false; // 透明になったら反転
+                                    } else {
+                                        btn.opacity_tmp += 0.05; // 徐々に不透明に
+                                        if (btn.opacity_tmp >= 1) btn.isFading = true; // 不透明になったら反転
+                                    }
+                                    btn.style.opacity = btn.opacity_tmp.toString();
+                                }, 100);
+                            }
+                            if(btn.clear_timer){
+                                clearTimeout(btn.clear_timer);
+                            }
+                            btn.clear_timer = setTimeout(() => {
+                                btn.isFading = true;
+                                btn.style.opacity = "1";
+                                clearInterval(btn.timer);
+                                btn.timer = 0;
+                                btn.clear_timer = 0;
+                                
+                                m_is_auto_drive = false;
+                            }, 1000);
+                            
+                            const { GPS, ENCODER, VSLAM } = info.handlers;
+                            const dist_key = "waypoint_distance";
+                            const head_key = "heading_error";
+                            plugin.update_value('auto-drive-waypoint-distance', `${GPS[dist_key].toFixed(3)}, ${ENCODER[dist_key].toFixed(3)}, ${VSLAM[dist_key] !== undefined ? VSLAM[dist_key].toFixed(3) : "-"}`);
+                            plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] !== undefined ? VSLAM[head_key].toFixed(3) : "-"}`);
+                            plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
+                            plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
+                            plugin.update_value('vslam-xyh', `${VSLAM.x !== undefined ? VSLAM.x.toFixed(3) : "-"}, ${VSLAM.y !== undefined ? VSLAM.y.toFixed(3) : "-"}, ${VSLAM.heading !== undefined ? VSLAM.heading.toFixed(3) : "-"}`);
+                            
+                            m_active_path_layer.push_gps_position(GPS);
+                            m_active_path_layer.push_encoder_position(ENCODER);
+                            m_active_path_layer.push_vslam_position(VSLAM);
+                        }
                         break;
                     }
                 };
@@ -831,8 +896,7 @@ var create_plugin = (function () {
             },
             start_record_path: () => {
                 console.log("path-record start");
-                m_is_record_path = true;
-                document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
+                //document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_RECORD"]));
                 }
@@ -840,16 +904,14 @@ var create_plugin = (function () {
             },
             stop_record_path: () => {
                 console.log("path-record stop");
-                m_is_record_path = false;
-                document.getElementById('record-btn').style.backgroundImage = 'var(--icon-record-64)';
+                //document.getElementById('record-btn').style.backgroundImage = 'var(--icon-record-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD STOP_RECORD"]));
                 }
             },
             start_auto_drive: () => {
                 console.log("auto-drive start");
-                m_is_auto_drive = true;
-                document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
+                //document.getElementById('play-btn').style.backgroundImage = 'var(--icon-stop-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_AUTO"]));
                 }
@@ -857,8 +919,7 @@ var create_plugin = (function () {
             },
             stop_auto_drive: () => {
                 console.log("auto-drive stop");
-                m_is_auto_drive = false;
-                document.getElementById('play-btn').style.backgroundImage = 'var(--icon-play-64)';
+                //document.getElementById('play-btn').style.backgroundImage = 'var(--icon-play-64)';
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD STOP_AUTO"]));
                 }
