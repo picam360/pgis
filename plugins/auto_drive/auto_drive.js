@@ -861,7 +861,7 @@ var create_plugin = (function () {
                                 
                                 m_is_auto_drive = false;
                             }, 1000);
-                            
+
                             const { GPS, ENCODER, VSLAM } = info.handlers;
                             const dist_key = "waypoint_distance";
                             const head_key = "heading_error";
@@ -937,43 +937,63 @@ var create_plugin = (function () {
                 m_active_path_layer = new ActivePathLayer(map, 501);
 
 				if(m_options.webdis_url){//webdis
-
-					const socket = new WebSocket(m_options.webdis_url);
-			
-					socket.onopen = function() {
-						console.log("webdis connection established");
-						if(m_options.auto_drive_key){
-                            socket.onmessage = function(event) {
-                                const data = JSON.parse(event.data);
-                                if(data["GET"]){
-                                    m_waypoints = JSON.parse(data["GET"]);
-                                    m_waypoints_layer.set_waypoints(m_waypoints);
-                                }
-                            };
-							socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-waypoints"]));
-                            setInterval(() => {
-                                socket.onmessage = function(event) {
-                                    const data = JSON.parse(event.data);
-                                    if(data["GET"]){
-                                        const cur = parseInt(data["GET"]);
-                                        if(cur != m_cur){
-                                            m_cur = cur;
-                                            m_waypoints_layer.set_cur(m_cur);
+                    {
+                        const socket = new WebSocket(m_options.webdis_url);
+                
+                        socket.onopen = function() {
+                            console.log("webdis connection established");
+                            if(m_options.auto_drive_key){
+                                setInterval(() => {
+                                    socket.onmessage = function(event) {
+                                        const data = JSON.parse(event.data);
+                                        if(data["GET"]){
+                                            m_waypoints = JSON.parse(data["GET"]);
+                                            m_waypoints_layer.set_waypoints(m_waypoints);
                                         }
-                                    }
-                                };
-                                socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-cur"]));
-                            }, 1000);
-						}
-					};
-			
-					socket.onclose = function() {
-						console.log("webdis connection closed");
-					};
-			
-					socket.onerror = function(error) {
-						console.log(`Error: ${error.message}`);
-					};
+                                    };
+                                    socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-waypoints"]));
+                                }, 1000);
+                            }
+                        };
+                
+                        socket.onclose = function() {
+                            console.log("webdis connection closed");
+                        };
+                
+                        socket.onerror = function(error) {
+                            console.log(`Error: ${error.message}`);
+                        };
+                    }
+                    {
+                        const socket = new WebSocket(m_options.webdis_url);
+                
+                        socket.onopen = function() {
+                            console.log("webdis connection established");
+                            if(m_options.auto_drive_key){
+                                setInterval(() => {
+                                    socket.onmessage = function(event) {
+                                        const data = JSON.parse(event.data);
+                                        if(data["GET"]){
+                                            const cur = parseInt(data["GET"]);
+                                            if(cur != m_cur){
+                                                m_cur = cur;
+                                                m_waypoints_layer.set_cur(m_cur);
+                                            }
+                                        }
+                                    };
+                                    socket.send(JSON.stringify(["GET", m_options.auto_drive_key + "-cur"]));
+                                }, 1000);
+                            }
+                        };
+                
+                        socket.onclose = function() {
+                            console.log("webdis connection closed");
+                        };
+                
+                        socket.onerror = function(error) {
+                            console.log(`Error: ${error.message}`);
+                        };
+                    }
 				}
             },
         };
