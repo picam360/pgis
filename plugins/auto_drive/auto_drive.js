@@ -855,6 +855,76 @@ var create_plugin = (function () {
                             }, 1000);
                         }
                         break;
+                    case "WAITING_PST":
+                        switch(info.mode){
+                        case "RECORD":
+                            {
+                                m_is_record_path = true;
+    
+                                const btn = document.getElementById('record-btn');
+                                if(!btn.timer){
+                                    btn.isFading = true;
+                                    btn.opacity_tmp = 1;
+                                    btn.timer = setInterval(() => {
+                                        if (btn.isFading) {
+                                            btn.opacity_tmp -= 0.05; // 徐々に透明に
+                                            if (btn.opacity_tmp <= 0.0) btn.isFading = false; // 透明になったら反転
+                                        } else {
+                                            btn.opacity_tmp += 0.05; // 徐々に不透明に
+                                            if (btn.opacity_tmp >= 0.7) btn.isFading = true; // 不透明になったら反転
+                                        }
+                                        btn.style.opacity = btn.opacity_tmp.toString();
+                                    }, 100);
+                                }
+                                if(btn.clear_timer){
+                                    clearTimeout(btn.clear_timer);
+                                }
+                                btn.clear_timer = setTimeout(() => {
+                                    btn.isFading = true;
+                                    btn.style.opacity = "1";
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                    btn.clear_timer = 0;
+    
+                                    m_is_record_path = false;
+                                }, 2000);
+                            }
+                            break;
+                        case "AUTO":
+                            {
+                                m_is_auto_drive = true;
+    
+                                const btn = document.getElementById('play-btn');
+                                if(!btn.timer){
+                                    btn.isFading = true;
+                                    btn.opacity_tmp = 1;
+                                    btn.timer = setInterval(() => {
+                                        if (btn.isFading) {
+                                            btn.opacity_tmp -= 0.05; // 徐々に透明に
+                                            if (btn.opacity_tmp <= 0.0) btn.isFading = false; // 透明になったら反転
+                                        } else {
+                                            btn.opacity_tmp += 0.05; // 徐々に不透明に
+                                            if (btn.opacity_tmp >= 0.7) btn.isFading = true; // 不透明になったら反転
+                                        }
+                                        btn.style.opacity = btn.opacity_tmp.toString();
+                                    }, 100);
+                                }
+                                if(btn.clear_timer){
+                                    clearTimeout(btn.clear_timer);
+                                }
+                                btn.clear_timer = setTimeout(() => {
+                                    btn.isFading = true;
+                                    btn.style.opacity = "1";
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                    btn.clear_timer = 0;
+                                    
+                                    m_is_auto_drive = false;
+                                }, 2000);
+                            }
+                            break;
+                        }
+                        break;
                     case "DRIVING":
                         {
                             m_is_auto_drive = true;
