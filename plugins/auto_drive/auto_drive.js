@@ -139,102 +139,135 @@ var create_plugin = (function () {
 
             this.m_vector_src.clear();
 
-            const points = [];
+            if(this.m_waypoints.src){
+                const points = [];
 
-            const keys = [];
-            const obj = {};
-            for (let key in this.m_waypoints) {
-                const value = parseFloat(key);
-                if(!isNaN(value)){
-                    keys.push(value);
-                    obj[value] = this.m_waypoints[key];
+                const keys = [];
+                const obj = {};
+                for (let key in this.m_waypoints.src) {
+                    const value = parseFloat(key);
+                    if(!isNaN(value)){
+                        keys.push(value);
+                        obj[value] = this.m_waypoints.src[key];
+                    }
                 }
+                keys.sort((a, b) => a - b);
+                for (let i in keys) {
+                    const key = keys[i];
+                    const p = obj[key];
+                    if(!p || !p.nmea){
+                        continue;
+                    }
+                    const ary = p.nmea.split(',');
+                    if(!ary[4] || !ary[2]){
+                        continue;
+                    }
+                    p.lon = _convert_DMS_to_deg(ary[4]);
+                    p.lat = _convert_DMS_to_deg(ary[2]);
+                    const point = ol.proj.fromLonLat([p.lon, p.lat]);
+                    points.push(point);
+                    // const feature = new ol.Feature({
+                    //     geometry: new ol.geom.Point(point)
+                    // });
+                    // feature.pgis_point = p;
+                    // this.m_vector_src.addFeature(feature);
+                }
+
+                const lineString = new ol.geom.LineString(points);
+                const lineFeature = new ol.Feature({
+                    geometry: lineString
+                });
+                const lineStyle = new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: '#FF0000',
+                        width: 5
+                    })
+                });
+                lineFeature.setStyle(lineStyle);
+                this.m_vector_src.addFeature(lineFeature);
             }
-            keys.sort((a, b) => a - b);
-            for (let i in keys) {
-                const key = keys[i];
+
+            if(this.m_waypoints.GPS && this.m_waypoints.VSLAM){
+                const points = [];
+    
+                const keys = Object.keys(this.m_waypoints.VSLAM);
+                keys.sort((a, b) => a - b);
+                const gps_first_node = this.m_waypoints.GPS[keys[0]];
+                for (const key of keys) {
+                    const point = [
+                        this.m_waypoints.VSLAM[key].x + gps_first_node.x,
+                        this.m_waypoints.VSLAM[key].y + gps_first_node.y,
+                    ];
+                    points.push(point);
+                }
+    
+                const lineString = new ol.geom.LineString(points);
+                const lineFeature = new ol.Feature({
+                    geometry: lineString
+                });
+                const lineStyle = new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: '#0000FF',
+                        width: 5
+                    })
+                });
+                lineFeature.setStyle(lineStyle);
+                this.m_vector_src.addFeature(lineFeature);
+            }
+        }
+        set_cur(cur) {
+            this.m_cur = cur;
+
+            if(this.m_waypoints.src){
+                if(this.m_cur_feature){
+                    this.m_vector_src.removeFeature(this.m_cur_feature);
+                    this.m_cur_feature = null;
+                }
+
+                const keys = [];
+                const obj = {};
+                for (let key in this.m_waypoints.src) {
+                    const value = parseFloat(key);
+                    if(!isNaN(value)){
+                        keys.push(value);
+                        obj[value] = this.m_waypoints.src[key];
+                    }
+                }
+                keys.sort((a, b) => a - b);
+                const key = keys[cur];
                 const p = obj[key];
                 if(!p || !p.nmea){
-                    continue;
+                    return;
                 }
                 const ary = p.nmea.split(',');
                 if(!ary[4] || !ary[2]){
-                    continue;
+                    return;
                 }
                 p.lon = _convert_DMS_to_deg(ary[4]);
                 p.lat = _convert_DMS_to_deg(ary[2]);
                 const point = ol.proj.fromLonLat([p.lon, p.lat]);
-                points.push(point);
-                // const feature = new ol.Feature({
-                //     geometry: new ol.geom.Point(point)
-                // });
+                const feature = new ol.Feature({
+                    geometry: new ol.geom.Point(point)
+                });
                 // feature.pgis_point = p;
-                // this.m_vector_src.addFeature(feature);
-            }
-
-            const lineString = new ol.geom.LineString(points);
-            const lineFeature = new ol.Feature({
-                geometry: lineString
-            });
-            const lineStyle = new ol.style.Style({
-                stroke: new ol.style.Stroke({
-                    color: '#FF0000',
-                    width: 5
-                })
-            });
-            lineFeature.setStyle(lineStyle);
-            this.m_vector_src.addFeature(lineFeature);
-        }
-        set_cur(cur) {
-            this.m_cur = cur;
-            if(this.m_cur_feature){
-                this.m_vector_src.removeFeature(this.m_cur_feature);
-                this.m_cur_feature = null;
-            }
-
-            const keys = [];
-            const obj = {};
-            for (let key in this.m_waypoints) {
-                const value = parseFloat(key);
-                if(!isNaN(value)){
-                    keys.push(value);
-                    obj[value] = this.m_waypoints[key];
-                }
-            }
-            keys.sort((a, b) => a - b);
-            const key = keys[cur];
-            const p = obj[key];
-            if(!p || !p.nmea){
-                return;
-            }
-            const ary = p.nmea.split(',');
-            if(!ary[4] || !ary[2]){
-                return;
-            }
-            p.lon = _convert_DMS_to_deg(ary[4]);
-            p.lat = _convert_DMS_to_deg(ary[2]);
-            const point = ol.proj.fromLonLat([p.lon, p.lat]);
-            const feature = new ol.Feature({
-                geometry: new ol.geom.Point(point)
-            });
-            // feature.pgis_point = p;
-            
-            const style = new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: 9, // 半径を適切なサイズに設定します
-                    fill: new ol.style.Fill({
-                        color: 'white', // 中の色を白に設定
+                
+                const style = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 9, // 半径を適切なサイズに設定します
+                        fill: new ol.style.Fill({
+                            color: 'white', // 中の色を白に設定
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: 'blue', // 縁取りの色を赤に設定
+                            width: 6, // 縁取りの幅を設定
+                        }),
                     }),
-                    stroke: new ol.style.Stroke({
-                        color: 'blue', // 縁取りの色を赤に設定
-                        width: 6, // 縁取りの幅を設定
-                    }),
-                }),
-                zIndex: this.m_z_idx,
-            });
-            feature.setStyle(style);
-            this.m_cur_feature = feature;
-            this.m_vector_src.addFeature(this.m_cur_feature);
+                    zIndex: this.m_z_idx,
+                });
+                feature.setStyle(style);
+                this.m_cur_feature = feature;
+                this.m_vector_src.addFeature(this.m_cur_feature);
+            }
         }
 
         _on_click(event_data) {
