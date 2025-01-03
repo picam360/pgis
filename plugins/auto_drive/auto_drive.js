@@ -187,6 +187,34 @@ var create_plugin = (function () {
                 this.m_vector_src.addFeature(lineFeature);
             }
 
+            if(this.m_waypoints.GPS && this.m_waypoints.ENCODER){
+                const points = [];
+    
+                const keys = Object.keys(this.m_waypoints.ENCODER);
+                keys.sort((a, b) => a - b);
+                const gps_first_node = this.m_waypoints.GPS[keys[0]];
+                for (const key of keys) {
+                    const point = [
+                        this.m_waypoints.ENCODER[key].x + gps_first_node.x,
+                        this.m_waypoints.ENCODER[key].y + gps_first_node.y,
+                    ];
+                    points.push(point);
+                }
+    
+                const lineString = new ol.geom.LineString(points);
+                const lineFeature = new ol.Feature({
+                    geometry: lineString
+                });
+                const lineStyle = new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: '#00FF00',
+                        width: 5
+                    })
+                });
+                lineFeature.setStyle(lineStyle);
+                this.m_vector_src.addFeature(lineFeature);
+            }
+
             if(this.m_waypoints.GPS && this.m_waypoints.VSLAM){
                 const points = [];
     
@@ -217,6 +245,10 @@ var create_plugin = (function () {
         }
         set_cur(cur) {
             this.m_cur = cur;
+
+            if(!this.m_waypoints){
+                return;
+            }
 
             if(this.m_waypoints.src){
                 if(this.m_cur_feature){
@@ -389,7 +421,7 @@ var create_plugin = (function () {
             });
             this.m_lineFeature_vslam.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                    color: '#FFFFFF',
+                    color: '#FF00FF',
                     width: 2
                 })
             }));
