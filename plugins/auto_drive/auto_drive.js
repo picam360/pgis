@@ -20,6 +20,29 @@ var create_plugin = (function () {
         }
     }
 
+    function getBoundingBox(points) {
+        if (points.length === 0) {
+            throw new Error("Points array is empty.");
+        }
+    
+        // x, y の最小値と最大値を計算
+        const xValues = points.map(([x, y]) => x);
+        const yValues = points.map(([x, y]) => y);
+    
+        const minX = Math.min(...xValues);
+        const maxX = Math.max(...xValues);
+        const minY = Math.min(...yValues);
+        const maxY = Math.max(...yValues);
+    
+        // 四角形の頂点を返す
+        return {
+            minX,
+            maxX,
+            minY,
+            maxY,
+        };
+    }
+
     class GGAParser {
         constructor(dataString, options = {}) {
             this.DataString = dataString;
@@ -171,6 +194,15 @@ var create_plugin = (function () {
                     // });
                     // feature.pgis_point = p;
                     // this.m_vector_src.addFeature(feature);
+                }
+
+                {
+                    const box = getBoundingBox(points);
+                    const view_center = pgis.get_map_handler().get_center();
+                    const [x, y] = view_center.center;
+                    if(x < box.minX || box.maxX < x || y < box.minY || box.maxY < y){
+                        pgis.get_map_handler().set_rectangle([box.minX, box.minY, box.maxX, box.maxY], 50);
+                    }
                 }
 
                 const lineString = new ol.geom.LineString(points);

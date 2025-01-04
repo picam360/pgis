@@ -198,6 +198,26 @@ var create_plugin = (function () {
             set_map: (map) => {
                 m_map = map;
             },
+            set_center: (center, zoom) => {
+                m_map.getView().animate({
+                    center: center,
+                    zoom: (zoom || 20),
+                });
+            },
+            get_center: () => {
+                const view = m_map.getView();
+                const center = view.getCenter();
+                const zoom = view.getZoom();
+                return { center, zoom };
+            },
+            set_rectangle: (rectangle, padding) => { // rectangle: [minX, minY, maxX, maxY]
+                padding = padding || 50;
+                m_map.getView().fit(rectangle, {
+                    size: m_map.getSize(),
+                    padding: [padding, padding, padding, padding],
+                    maxZoom: 25,
+                });
+            },
             refresh: () => {
                 m_point_layer.refresh();
             },
@@ -340,11 +360,8 @@ var create_plugin = (function () {
                 pgis.get_gps_handler().add_set_current_position_callback((lat, lng) => {
     
                     if(first_call){
-                        var userLocation = ol.proj.fromLonLat([lng, lat]);
-                        m_map.getView().animate({
-                            center: userLocation,
-                            zoom: 20
-                        });
+                        const center = ol.proj.fromLonLat([lng, lat]);
+                        m_map_handler.set_center(center, 20);
                         first_call = false;
                     }
 
