@@ -258,6 +258,8 @@ var create_plugin = (function () {
             if(this.m_waypoints.GPS && this.m_waypoints.VSLAM_ACTIVE){
                 this.add_line(this.m_waypoints.VSLAM_ACTIVE, '#880088', 4);
             }
+
+            this.set_cur(this.m_cur);
         }
         set_cur(cur) {
             this.m_cur = cur;
