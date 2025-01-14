@@ -274,28 +274,42 @@ var create_plugin = (function () {
                     this.m_cur_feature = null;
                 }
 
-                const keys = [];
-                const obj = {};
-                for (let key in this.m_waypoints.src) {
-                    const value = parseFloat(key);
-                    if(!isNaN(value)){
-                        keys.push(value);
-                        obj[value] = this.m_waypoints.src[key];
+                let point;
+                if(this.m_waypoints.GPS && this.m_waypoints.ENCODER){
+                    const gps_first_node = this.m_waypoints.GPS[Object.keys(this.m_waypoints.GPS)[0]];
+                    const p = this.m_waypoints.ENCODER[cur];
+                    if(!p){
+                        return;
                     }
+                    point = [
+                        p.x + gps_first_node.x,
+                        p.y + gps_first_node.y,
+                    ];
+                }else{
+                    const keys = [];
+                    const obj = {};
+                    for (let key in this.m_waypoints.src) {
+                        const value = parseFloat(key);
+                        if(!isNaN(value)){
+                            keys.push(value);
+                            obj[value] = this.m_waypoints.src[key];
+                        }
+                    }
+                    keys.sort((a, b) => a - b);
+                    const key = keys[cur];
+                    const p = obj[key];
+                    if(!p || !p.nmea){
+                        return;
+                    }
+                    const ary = p.nmea.split(',');
+                    if(!ary[4] || !ary[2]){
+                        return;
+                    }
+                    p.lon = _convert_DMS_to_deg(ary[4]);
+                    p.lat = _convert_DMS_to_deg(ary[2]);
+
+                    point = ol.proj.fromLonLat([p.lon, p.lat]);
                 }
-                keys.sort((a, b) => a - b);
-                const key = keys[cur];
-                const p = obj[key];
-                if(!p || !p.nmea){
-                    return;
-                }
-                const ary = p.nmea.split(',');
-                if(!ary[4] || !ary[2]){
-                    return;
-                }
-                p.lon = _convert_DMS_to_deg(ary[4]);
-                p.lat = _convert_DMS_to_deg(ary[2]);
-                const point = ol.proj.fromLonLat([p.lon, p.lat]);
                 const feature = new ol.Feature({
                     geometry: new ol.geom.Point(point)
                 });
@@ -364,6 +378,8 @@ var create_plugin = (function () {
             this.m_lineFeature_gps = null;
             this.m_lineFeature_encoder = null;
             this.m_lineFeature_vslam = null;
+            this.m_act_feature = null;
+            this.m_act_arrow_feature = null;
             this.m_tri_style = null;
             this.m_clicked_tri_style = null;
             this.m_layer = null;
@@ -372,7 +388,7 @@ var create_plugin = (function () {
             this.m_waypoints = null;
             this.m_base_x = 0;
             this.m_base_y = 0;
-            this.m_cur = 0;
+            this.m_act = 0;
             this._init();
         }
         _init() {
@@ -444,6 +460,66 @@ var create_plugin = (function () {
                 })
             }));
             this.m_vector_src.addFeature(this.m_lineFeature_vslam);
+        }
+        set_act(pos) {//active pos
+            if(!this.m_base_point || !pos || pos.x === undefined || pos.y === undefined){
+                return;
+            }
+            const point = [
+                pos.x + this.m_base_point[0],
+                pos.y + this.m_base_point[1],
+            ];
+
+            this.m_act = pos;
+
+            if(this.m_act_feature){
+                this.m_vector_src.removeFeature(this.m_act_feature);
+                this.m_act_feature = null;
+            }
+                
+            const feature = new ol.Feature({
+                geometry: new ol.geom.Point(point)
+            });
+            const style = new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 9, // 半径を適切なサイズに設定します
+                    fill: new ol.style.Fill({
+                        color: 'white', // 中の色を白に設定
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: 'red', // 縁取りの色を赤に設定
+                        width: 6, // 縁取りの幅を設定
+                    }),
+                }),
+                zIndex: this.m_z_idx,
+            });
+            feature.setStyle(style);
+            this.m_act_feature = feature;
+            this.m_vector_src.addFeature(this.m_act_feature);
+
+            if(this.m_act_arrow_feature){
+                this.m_vector_src.removeFeature(this.m_act_arrow_feature);
+                this.m_act_arrow_feature = null;
+            }
+
+            const arrow_len = 1;
+            const arrowFeature = new ol.Feature({
+                geometry: new ol.geom.LineString([
+                    point, [
+                        point[0] + arrow_len * Math.sin(pos.heading * Math.PI / 180),
+                        point[1] + arrow_len * Math.cos(pos.heading * Math.PI / 180),
+                    ],    // 方角を示す線の終点
+                ]),
+            });
+            const arrowStyle = new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: 'red',
+                width: 3,
+              }),
+            });
+            arrowFeature.setStyle(arrowStyle);
+            this.m_act_arrow_feature = arrowFeature;
+            this.m_vector_src.addFeature(this.m_act_arrow_feature);
         }
         push_gps_position(pos) {
             if(!this.m_base_point || !pos || pos.x === undefined || pos.y === undefined){
@@ -536,6 +612,9 @@ var create_plugin = (function () {
             this.m_vector_src.removeFeature(this.m_lineFeature_gps);
             this.m_vector_src.removeFeature(this.m_lineFeature_encoder);
             this.m_vector_src.removeFeature(this.m_lineFeature_vslam);
+
+            this.m_vector_src.removeFeature(this.m_act_feature);
+            this.m_vector_src.removeFeature(this.m_act_arrow_feature);
 
             this.m_base_point = null;
         }
@@ -1052,6 +1131,14 @@ var create_plugin = (function () {
                             m_active_path_layer.push_gps_position(GPS);
                             m_active_path_layer.push_encoder_position(ENCODER);
                             m_active_path_layer.push_vslam_position(VSLAM);
+
+                            if(VSLAM && VSLAM.x != undefined && VSLAM.y != undefined){
+                                m_active_path_layer.set_act(VSLAM);
+                            }else if(ENCODER && ENCODER.x != undefined && ENCODER.y != undefined){
+                                m_active_path_layer.set_act(ENCODER);
+                            }else if(GPS && GPS.x != undefined && GPS.y != undefined){
+                                m_active_path_layer.set_act(GPS);
+                            }
                         }
                         break;
                     }
