@@ -158,7 +158,7 @@ var create_plugin = (function () {
             this.m_map.addLayer(this.m_layer);
         }
 
-        add_line(waypoints, color, width){
+        add_line(waypoints, color, width, dash){
             const points = [];
 
             const keys = Object.keys(waypoints);
@@ -179,7 +179,8 @@ var create_plugin = (function () {
             const lineStyle = new ol.style.Style({
                 stroke: new ol.style.Stroke({
                     color: color,
-                    width: width
+                    width: width,
+                    lineDash : dash,
                 })
             });
             lineFeature.setStyle(lineStyle);
@@ -239,8 +240,9 @@ var create_plugin = (function () {
                 });
                 const lineStyle = new ol.style.Style({
                     stroke: new ol.style.Stroke({
-                        color: '#FF0000',
-                        width: 5
+                        color: 'green',
+                        width: (this.m_waypoints.ENCODER ? 3 : 5),
+                        lineDash: (this.m_waypoints.ENCODER ? [20, 20] : undefined),
                     })
                 });
                 lineFeature.setStyle(lineStyle);
@@ -248,15 +250,15 @@ var create_plugin = (function () {
             }
 
             if(this.m_waypoints.GPS && this.m_waypoints.ENCODER){
-                this.add_line(this.m_waypoints.ENCODER, '#00FF00', 5);
+                this.add_line(this.m_waypoints.ENCODER, 'red', 5);
             }
 
             if(this.m_waypoints.GPS && this.m_waypoints.VSLAM){
-                this.add_line(this.m_waypoints.VSLAM, '#0000FF', 5);
+                this.add_line(this.m_waypoints.VSLAM, 'blue', 3, [20, 20]);
             }
 
             if(this.m_waypoints.GPS && this.m_waypoints.VSLAM_ACTIVE){
-                this.add_line(this.m_waypoints.VSLAM_ACTIVE, '#880088', 4);
+                this.add_line(this.m_waypoints.VSLAM_ACTIVE, '#FF00FF', 3, [10, 10]);
             }
 
             this.set_cur(this.m_cur);
@@ -319,10 +321,10 @@ var create_plugin = (function () {
                     image: new ol.style.Circle({
                         radius: 9, // 半径を適切なサイズに設定します
                         fill: new ol.style.Fill({
-                            color: 'white', // 中の色を白に設定
+                            color: 'red', // 中の色を白に設定
                         }),
                         stroke: new ol.style.Stroke({
-                            color: 'blue', // 縁取りの色を赤に設定
+                            color: 'white', // 縁取りの色を赤に設定
                             width: 6, // 縁取りの幅を設定
                         }),
                     }),
@@ -419,7 +421,7 @@ var create_plugin = (function () {
             });
             this.m_lineFeature.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                    color: '#00FF00',
+                    color: 'green',
                     width: 2
                 })
             }));
@@ -431,7 +433,7 @@ var create_plugin = (function () {
             });
             this.m_lineFeature_gps.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                    color: '#FFFF00',
+                    color: '#80FF00',
                     width: 2
                 })
             }));
@@ -443,7 +445,7 @@ var create_plugin = (function () {
             });
             this.m_lineFeature_encoder.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                    color: '#00FFFF',
+                    color: '#FF0080',
                     width: 2
                 })
             }));
@@ -455,11 +457,17 @@ var create_plugin = (function () {
             });
             this.m_lineFeature_vslam.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                    color: '#FF00FF',
+                    color: '#8000FF',
                     width: 2
                 })
             }));
             this.m_vector_src.addFeature(this.m_lineFeature_vslam);
+        }
+        set_base_point(pos) {
+            this.m_base_point = [
+                pos.x,
+                pos.y,
+            ];
         }
         set_act(pos) {//active pos
             if(!this.m_base_point || !pos || pos.x === undefined || pos.y === undefined){
@@ -484,10 +492,10 @@ var create_plugin = (function () {
                 image: new ol.style.Circle({
                     radius: 9, // 半径を適切なサイズに設定します
                     fill: new ol.style.Fill({
-                        color: 'white', // 中の色を白に設定
+                        color: 'blue', // 中の色を白に設定
                     }),
                     stroke: new ol.style.Stroke({
-                        color: 'red', // 縁取りの色を赤に設定
+                        color: 'white', // 縁取りの色を赤に設定
                         width: 6, // 縁取りの幅を設定
                     }),
                 }),
@@ -583,10 +591,6 @@ var create_plugin = (function () {
             const lon = _convert_DMS_to_deg(ary[4]);
             const lat = _convert_DMS_to_deg(ary[2]);
             const point = ol.proj.fromLonLat([lon, lat]);
-
-            if(!this.m_base_point){
-                this.m_base_point = point;
-            }
 
             this.m_vector_src.removeFeature(this.m_lineFeature);
 
@@ -1210,6 +1214,10 @@ var create_plugin = (function () {
                             if(data["GET"] !== undefined){
                                 m_waypoints = JSON.parse(data["GET"]);
                                 m_waypoints_layer.set_waypoints(m_waypoints);
+                                if(m_waypoints.GPS){
+                                    const gps_first_node = m_waypoints.GPS[Object.keys(m_waypoints.GPS)[0]];
+                                    m_active_path_layer.set_base_point(gps_first_node);
+                                }
                             }
                         };
                 
