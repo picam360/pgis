@@ -917,27 +917,33 @@ var create_plugin = (function () {
                                     integerPart = integerPart.padStart(padding, '0');
                                     return `${integerPart}.${decimalPart}`;
                                 }
-                                const nmea = frame["picam360:frame"]["passthrough:nmea"];
-                                const gga = new GGAParser(nmea);
-                                pgis.get_gps_handler().set_current_position(gga.latitude, gga.longitude);
-                                plugin.update_info_box(gga);
-                                plugin.update_value('gps-latlon', `${num_format(gga.latitude, 3, 7)}, ${num_format(gga.longitude, 3, 7)}`);//7:cm order
+                                if(frame["picam360:frame"]["passthrough:nmea"]){
+                                    const nmea = frame["picam360:frame"]["passthrough:nmea"];
+                                    const gga = new GGAParser(nmea);
+                                    pgis.get_gps_handler().set_current_position(gga.latitude, gga.longitude);
+                                    plugin.update_info_box(gga);
+                                    plugin.update_value('gps-latlon', `${num_format(gga.latitude, 3, 7)}, ${num_format(gga.longitude, 3, 7)}`);//7:cm order
 
-                                m_active_path_layer.push_nmea(nmea);
+                                    m_active_path_layer.push_nmea(nmea);
+                                }
 
                                 const img = document.getElementById('img-left-top');
                                 img.src = 'data:image/jpeg;base64,' + tmp_img[2];
 
-                                const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
-                                if(m_last_encoder){
-                                    plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right} (${-(encoder.left - m_last_encoder.left)}, ${encoder.right - m_last_encoder.right})`);
-                                }else{
-                                    plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right}`);
+                                if(frame["picam360:frame"]["passthrough:encoder"]){
+                                    const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
+                                    if(m_last_encoder){
+                                        plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right} (${-(encoder.left - m_last_encoder.left)}, ${encoder.right - m_last_encoder.right})`);
+                                    }else{
+                                        plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right}`);
+                                    }
+                                    m_last_encoder = encoder;
                                 }
-                                m_last_encoder = encoder;
 
-                                const imu = JSON.parse(frame["picam360:frame"]["passthrough:imu"]);
-                                plugin.update_value('imu-heading', num_format(imu.heading, 3, 7));
+                                if(frame["picam360:frame"]["passthrough:imu"]){
+                                    const imu = JSON.parse(frame["picam360:frame"]["passthrough:imu"]);
+                                    plugin.update_value('imu-heading', num_format(imu.heading, 3, 7));
+                                }
 
                                 //console.log(frame);
                             }
