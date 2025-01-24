@@ -66,10 +66,11 @@ var create_plugin = (function() {
                         fn.load('camera.html', () => {		
                             console.log('camera.html loaded');
 
+                            document.getElementById('app-header').innerHTML = pgis.get_app_title();
+
                             document.getElementById('config-btn').addEventListener('click', function () {
                                 plugin.open_config();
                             });
-
 
                             document.getElementById('view-btn').addEventListener('click', function () {
                                 plugin.open_pviewer();

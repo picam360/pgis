@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>pgis</title>
+  <title id="app-title">pgis</title>
   <link rel="stylesheet" href="lib/onsenui/css/onsenui.css" />
   <link rel="stylesheet" href="lib/onsenui/css/onsen-css-components.css" />
   <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
@@ -33,8 +33,7 @@
 </head>
 
 <body>
-<h2>pgis</h2>
-
+  
 <ons-splitter>
   <ons-splitter-side id="main-menu" side="right" width="220px" collapse>
     <ons-page>
@@ -54,7 +53,7 @@
         <div class="left">
           <ons-back-button id="btnBack">Back</ons-back-button>
         </div>
-        <div class="center" style="-webkit-app-region: drag">pgis</div>
+        <div class="center" style="-webkit-app-region: drag" id="app-header">pgis</div>
         <div class="right">
           <ons-toolbar-button ng-click="app.menu.toggleMenu()">
             <ons-icon icon="ion-navicon" style="font-size: 32px; width: 1em;"></ons-icon>

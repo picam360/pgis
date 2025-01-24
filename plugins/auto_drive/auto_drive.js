@@ -649,6 +649,8 @@ var create_plugin = (function () {
                         fn.load('auto_drive.html', () => {		
                             console.log('auto_drive.html loaded');
 
+                            document.getElementById('app-header').innerHTML = pgis.get_app_title();
+
                             document.getElementById('play-btn').addEventListener('click', function () {
                                 if(m_is_auto_drive){
                                     plugin.stop_auto_drive();

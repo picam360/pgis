@@ -305,6 +305,8 @@ var create_plugin = (function () {
                         $('body').append(node);
                         fn.load('home.html', () => {		
                             console.log('home.html loaded');
+                            
+                            document.getElementById('app-header').innerHTML = pgis.get_app_title();
                         });
                     });
                     m_plugin_host.getFile("plugins/map/map.css", function (
