@@ -187,6 +187,8 @@ var create_plugin = (function () {
             this.m_vector_src.addFeature(lineFeature);
         }
         set_waypoints(waypoints) {
+            waypoints = waypoints || {};
+
             this.m_waypoints = waypoints;
 
             this.m_vector_src.clear();
@@ -225,7 +227,7 @@ var create_plugin = (function () {
                     // this.m_vector_src.addFeature(feature);
                 }
 
-                {
+                if(points.length != 0){
                     const box = getBoundingBox(points);
                     const view_center = pgis.get_map_handler().get_center();
                     const [x, y] = view_center.center;
@@ -972,6 +974,18 @@ var create_plugin = (function () {
             subscribe_info: () => {
 
                 const socket = new WebSocket(m_options.webdis_url);
+                let last_ts = Date.now();
+                document.getElementById('record-btn').style.opacity = "0.1";
+                document.getElementById('play-btn').style.opacity = "0.1";
+                setInterval(() => {
+                    const elapsed = Date.now() - last_ts;
+                    if(elapsed > 3000){
+                        document.getElementById('record-btn').style.opacity = "0.1";
+                    }
+                    if(elapsed > 3000){
+                        document.getElementById('play-btn').style.opacity = "0.1";
+                    }
+                }, 1000);
 
                 socket.onmessage = function(event) {
                     const msg = JSON.parse(event.data);
@@ -979,29 +993,34 @@ var create_plugin = (function () {
                         return;
                     }
 
+                    last_ts = Date.now();
+
                     const info = JSON.parse(msg["SUBSCRIBE"][2]);
                     switch(info.state){
-                    case "WAYPOINT_UPDATED":{
+                    case "WAYPOINT_UPDATED":
                         m_waypoint_updated = true;
 
                         break;
-                    }
-                    case "DONE":
-                        plugin.update_value('auto-drive-waypoint-distance', '-');
-                        plugin.update_value('auto-drive-heading-error', '-');
-                        plugin.update_value('gps-xyh', '-');
-                        plugin.update_value('encoder-xyh', '-');
-                        plugin.update_value('vslam-xyh', '-');
-                        plugin.stop_auto_drive();
+                    case "STOP_RECORD":
+                        m_is_record_path = false;
+                        break;
+                    case "START_RECORD":
+                        m_is_record_path = true;
+                        m_active_path_layer.clear();
                         break;
                     case "RECORDING":
                         {
                             m_is_record_path = true;
 
                             const btn = document.getElementById('record-btn');
+                            if(btn.timer && btn.timer_owner != info.state){
+                                clearInterval(btn.timer);
+                                btn.timer = 0;
+                            }
                             if(!btn.timer){
                                 btn.isFading = true;
                                 btn.opacity_tmp = 1;
+                                btn.timer_owner = info.state;
                                 btn.timer = setInterval(() => {
                                     if (btn.isFading) {
                                         btn.opacity_tmp -= 0.05; // 徐々に透明に
@@ -1034,9 +1053,14 @@ var create_plugin = (function () {
                                 m_is_record_path = true;
     
                                 const btn = document.getElementById('record-btn');
+                                if(btn.timer && btn.timer_owner != info.state){
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                }
                                 if(!btn.timer){
                                     btn.isFading = true;
                                     btn.opacity_tmp = 1;
+                                    btn.timer_owner = info.state;
                                     btn.timer = setInterval(() => {
                                         if (btn.isFading) {
                                             btn.opacity_tmp -= 0.05; // 徐々に透明に
@@ -1067,9 +1091,14 @@ var create_plugin = (function () {
                                 m_is_auto_drive = true;
     
                                 const btn = document.getElementById('play-btn');
+                                if(btn.timer && btn.timer_owner != info.state){
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                }
                                 if(!btn.timer){
                                     btn.isFading = true;
                                     btn.opacity_tmp = 1;
+                                    btn.timer_owner = info.state;
                                     btn.timer = setInterval(() => {
                                         if (btn.isFading) {
                                             btn.opacity_tmp -= 0.05; // 徐々に透明に
@@ -1095,6 +1124,91 @@ var create_plugin = (function () {
                                 }, 2000);
                             }
                             break;
+                        case "STANBY":
+                            {
+                                m_is_record_path = false;
+                                const btn = document.getElementById('record-btn');
+                                if(btn.timer){
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                }
+                                btn.style.opacity = "0.5";
+                            }
+                            {
+                                m_is_auto_drive = false;
+                                const btn = document.getElementById('play-btn');
+                                if(btn.timer){
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                }
+                                btn.style.opacity = "0.5";
+                            }
+                            break;
+                        }
+                        break;
+                    case "RECEIVING_PST":
+                        switch(info.mode){
+                        case "STANBY":
+                            {
+                                m_is_record_path = false;
+                                const btn = document.getElementById('record-btn');
+                                if(btn.timer){
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                }
+                                btn.style.opacity = "1.0";
+                            }
+                            {
+                                m_is_auto_drive = false;
+                                const btn = document.getElementById('play-btn');
+                                if(btn.timer){
+                                    clearInterval(btn.timer);
+                                    btn.timer = 0;
+                                }
+                                btn.style.opacity = "1.0";
+                            }
+                            break;
+                        }
+                        break;
+                    case "STOP_AUTO":
+                        {
+                            m_is_auto_drive = false;
+                            const btn = document.getElementById('play-btn');
+                            if(!btn.timer){
+                                clearInterval(btn.timer);
+                                btn.timer = 0;
+                            }
+                        }
+                        break;
+                    case "START_AUTO":
+                        {
+                            m_is_auto_drive = true;
+                            
+                            const btn = document.getElementById('play-btn');
+                            if(btn.timer && btn.timer_owner != info.state){
+                                clearInterval(btn.timer);
+                                btn.timer = 0;
+                            }
+                            if(!btn.timer){
+                                btn.isFading = true;
+                                btn.opacity_tmp = 1;
+                                btn.timer_owner = info.state;
+                                btn.timer = setInterval(() => {
+                                    if (btn.isFading) {
+                                        btn.opacity_tmp -= 0.05; // 徐々に透明に
+                                        if (btn.opacity_tmp <= 0.0) btn.isFading = false; // 透明になったら反転
+                                    } else {
+                                        btn.opacity_tmp += 0.05; // 徐々に不透明に
+                                        if (btn.opacity_tmp >= 0.7) btn.isFading = true; // 不透明になったら反転
+                                    }
+                                    btn.style.opacity = btn.opacity_tmp.toString();
+                                }, 100);
+                            }
+                        }
+                        break;
+                    case "READY_AUTO":
+                        {
+                            console.log(info.state);
                         }
                         break;
                     case "DRIVING":
@@ -1102,9 +1216,14 @@ var create_plugin = (function () {
                             m_is_auto_drive = true;
 
                             const btn = document.getElementById('play-btn');
+                            if(btn.timer && btn.timer_owner != info.state){
+                                clearInterval(btn.timer);
+                                btn.timer = 0;
+                            }
                             if(!btn.timer){
                                 btn.isFading = true;
                                 btn.opacity_tmp = 1;
+                                btn.timer_owner = info.state;
                                 btn.timer = setInterval(() => {
                                     if (btn.isFading) {
                                         btn.opacity_tmp -= 0.05; // 徐々に透明に
@@ -1151,6 +1270,14 @@ var create_plugin = (function () {
                             }
                         }
                         break;
+                    case "DONE":
+                        plugin.update_value('auto-drive-waypoint-distance', '-');
+                        plugin.update_value('auto-drive-heading-error', '-');
+                        plugin.update_value('gps-xyh', '-');
+                        plugin.update_value('encoder-xyh', '-');
+                        plugin.update_value('vslam-xyh', '-');
+                        plugin.stop_auto_drive();
+                        break;
                     }
                 };
         
@@ -1175,7 +1302,6 @@ var create_plugin = (function () {
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_RECORD"]));
                 }
-                m_active_path_layer.clear();
             },
             stop_record_path: () => {
                 console.log("path-record stop");
@@ -1190,7 +1316,6 @@ var create_plugin = (function () {
                 if(m_socket){
                     m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", `CMD START_AUTO ${m_shiftkey_down ? "REVERSE" : ""}`]));
                 }
-                m_active_path_layer.clear();
             },
             stop_auto_drive: () => {
                 console.log("auto-drive stop");
@@ -1217,7 +1342,7 @@ var create_plugin = (function () {
 
                         socket.onmessage = function(event) {
                             const data = JSON.parse(event.data);
-                            if(data["GET"] !== undefined){
+                            if(data["GET"]){
                                 m_waypoints = JSON.parse(data["GET"]);
                                 m_waypoints_layer.set_waypoints(m_waypoints);
                                 if(m_waypoints.GPS){
