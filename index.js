@@ -64,6 +64,10 @@ var pgis = (() => {
             console.log("loading config...");
             console.log(m_options);
 
+            self.get_app_title = () => {
+                return options.app_title || "pgis";
+            };
+
             m_point_handler = new PointHanlder();
             self.plugin_host = PluginHost(self, m_options);
             var timer = setInterval(() => {
@@ -77,6 +81,12 @@ var pgis = (() => {
                 }
                 clearInterval(timer);
                 self.plugin_host.init_plugins().then(() => {
+
+                    if(options.app_title){
+                        const title = document.getElementById('app-title');
+                        title.innerHTML = self.get_app_title();
+                    }
+
                     setTimeout(() => {
                         m_point_handler.init();
                         pgis.plugin_host.send_event(self, "loaded");

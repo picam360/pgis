@@ -1302,7 +1302,7 @@ var create_plugin = (function () {
                 console.log("path-record start");
                 //document.getElementById('record-btn').style.backgroundImage = 'var(--icon-stop-64)';
                 if(m_socket){
-                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", "CMD START_RECORD"]));
+                    m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", `CMD START_RECORD ${m_shiftkey_down ? "EXTEND" : ""}`]));
                 }
             },
             stop_record_path: () => {
