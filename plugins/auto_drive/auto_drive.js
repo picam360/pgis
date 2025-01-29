@@ -999,6 +999,9 @@ var create_plugin = (function () {
 
                     const info = JSON.parse(msg["SUBSCRIBE"][2]);
                     switch(info.state){
+                    case "VSLAM_RECONSTRUCTION_PROGRESS":
+                        plugin.update_value('vslam-xyh', `reconstructing... ${info.progress}%`);
+                        break;
                     case "WAYPOINT_UPDATED":
                         m_waypoint_updated = true;
 
