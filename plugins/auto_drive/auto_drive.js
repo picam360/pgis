@@ -1188,6 +1188,7 @@ var create_plugin = (function () {
                     case "START_AUTO":
                         {
                             m_is_auto_drive = true;
+                            m_active_path_layer.clear();
                             
                             const btn = document.getElementById('play-btn');
                             if(btn.timer && btn.timer_owner != info.state){
