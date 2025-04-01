@@ -201,7 +201,7 @@ var create_plugin = (function () {
             set_center: (center, zoom) => {
                 m_map.getView().animate({
                     center: center,
-                    zoom: (zoom || 20),
+                    zoom: (zoom || m_map.getView().getZoom()),
                 });
             },
             get_center: () => {
@@ -357,16 +357,7 @@ var create_plugin = (function () {
                     }
                 });
 
-
-                var first_call = true;
                 pgis.get_gps_handler().add_set_current_position_callback((lat, lng) => {
-    
-                    if(first_call){
-                        const center = ol.proj.fromLonLat([lng, lat]);
-                        m_map_handler.set_center(center, 20);
-                        first_call = false;
-                    }
-
                     m_position_layer.refresh(lat, lng);
                 });
 
@@ -377,7 +368,6 @@ var create_plugin = (function () {
                         m_map.getView().animate({
                             center: userLocation,
                         });
-                        first_call = false;
                     }
                 });
             }
