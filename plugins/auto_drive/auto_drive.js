@@ -997,6 +997,10 @@ var create_plugin = (function () {
 
                     last_ts = Date.now();
 
+                    const _f = function(v){
+                        return v !== undefined ? v.toFixed(3) : "-";
+                    }
+
                     const info = JSON.parse(msg["SUBSCRIBE"][2]);
                     switch(info.state){
                     case "VSLAM_RECONSTRUCTION_PROGRESS":
@@ -1261,7 +1265,7 @@ var create_plugin = (function () {
                             plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] !== undefined ? VSLAM[head_key].toFixed(3) : "-"}`);
                             plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
                             plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
-                            plugin.update_value('vslam-xyh', `${VSLAM.x !== undefined ? VSLAM.x.toFixed(3) : "-"}, ${VSLAM.y !== undefined ? VSLAM.y.toFixed(3) : "-"}, ${VSLAM.heading !== undefined ? VSLAM.heading.toFixed(3) : "-"}`);
+                            plugin.update_value('vslam-xyh', `${_f(VSLAM.x)}, ${_f(VSLAM.y)}, ${_f(VSLAM.heading)}, ${_f(VSLAM.confidence)}`);
                             
                             m_active_path_layer.push_gps_position(GPS);
                             m_active_path_layer.push_encoder_position(ENCODER);
@@ -1284,6 +1288,11 @@ var create_plugin = (function () {
                         plugin.update_value('vslam-xyh', '-');
                         plugin.stop_auto_drive();
                         break;
+                    }
+
+                    if(info.sysinfo){
+                        const si = info.sysinfo;
+                        plugin.update_value('system-info', `${_f(si.temp)}°`);
                     }
                 };
         
