@@ -1260,11 +1260,13 @@ var create_plugin = (function () {
 
                             const { GPS, ENCODER, VSLAM } = info.handlers;
                             const dist_key = "waypoint_distance";
+                            const shift_key = "waypoint_shift";
                             const head_key = "heading_error";
-                            plugin.update_value('auto-drive-waypoint-distance', `${GPS[dist_key].toFixed(3)}, ${ENCODER[dist_key].toFixed(3)}, ${VSLAM[dist_key] !== undefined ? VSLAM[dist_key].toFixed(3) : "-"}`);
-                            plugin.update_value('auto-drive-heading-error', `${GPS[head_key].toFixed(3)}, ${ENCODER[head_key].toFixed(3)}, ${VSLAM[head_key] !== undefined ? VSLAM[head_key].toFixed(3) : "-"}`);
-                            plugin.update_value('gps-xyh', `${GPS.x.toFixed(3)}, ${GPS.y.toFixed(3)}, ${GPS.heading.toFixed(3)}`);
-                            plugin.update_value('encoder-xyh', `${ENCODER.x.toFixed(3)}, ${ENCODER.y.toFixed(3)}, ${ENCODER.heading.toFixed(3)}`);
+                            plugin.update_value('auto-drive-waypoint-distance', `${_f(GPS[dist_key])}, ${_f(ENCODER[dist_key])}, ${_f(VSLAM[dist_key])}`);
+                            plugin.update_value('auto-drive-waypoint-shift', `${_f(GPS[shift_key])}, ${_f(ENCODER[shift_key])}, ${_f(VSLAM[shift_key])}`);
+                            plugin.update_value('auto-drive-heading-error', `${_f(GPS[head_key])}, ${_f(ENCODER[head_key])}, ${_f(VSLAM[head_key])}`);
+                            plugin.update_value('gps-xyh', `${_f(GPS.x)}, ${_f(GPS.y)}, ${_f(GPS.heading)}`);
+                            plugin.update_value('encoder-xyh', `${_f(ENCODER.x)}, ${_f(ENCODER.y)}, ${_f(ENCODER.heading)}`);
                             plugin.update_value('vslam-xyh', `${_f(VSLAM.x)}, ${_f(VSLAM.y)}, ${_f(VSLAM.heading)}`);
                             
                             m_active_path_layer.push_gps_position(GPS);
