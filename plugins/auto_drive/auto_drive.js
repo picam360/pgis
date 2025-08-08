@@ -1284,6 +1284,7 @@ var create_plugin = (function () {
                         break;
                     case "DONE":
                         plugin.update_value('auto-drive-waypoint-distance', '-');
+                        plugin.update_value('auto-drive-waypoint-shift', '-');
                         plugin.update_value('auto-drive-heading-error', '-');
                         plugin.update_value('gps-xyh', '-');
                         plugin.update_value('encoder-xyh', '-');
