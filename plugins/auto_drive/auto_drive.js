@@ -715,6 +715,29 @@ var create_plugin = (function () {
                 if (pgis === sender) {
                     if (event === "loaded") {
                         setTimeout(() => {
+                            if (m_options.webdis_url && m_options.pst_channel) {//webdis for publish
+                                const socket = new WebSocket(m_options.webdis_url);
+
+                                let tmp_img = [];
+                                socket.onmessage = function (event) {
+                                    console.log(event);
+                                };
+
+                                socket.onopen = function () {
+                                    console.log("webdis connection established");
+                                    m_socket = socket;
+                                };
+
+                                socket.onclose = function () {
+                                    console.log("webdis connection closed");
+                                    m_socket = null;
+                                };
+
+                                socket.onerror = function (error) {
+                                    console.log(`Error: ${error.message}`);
+                                    socket.close();
+                                };
+                            }
                             plugin.init_map_layer();
                             if (m_options.webdis_url && m_options.pst_channel) {//webdis
                                 plugin.subscribe_pst();
@@ -1299,11 +1322,56 @@ var create_plugin = (function () {
                 const socket = new WebSocket(m_options.webdis_url);
 
                 let m_detected_objects = [];
+                let rects = [];
                 // [{ "id": "A", "x": 20, "y": 20, "w": 120, "h": 60, "label": "Area A", "href": "" }];
 
                 const img = document.getElementById('img-left-top');
                 const canvas = document.getElementById('img-left-top-overlay');
                 const ctx = canvas.getContext('2d');
+
+                function detectionsToAreas(detections) {
+
+                    return detections.map((d, idx) => {
+                        const b = Array.isArray(d.bbox) ? d.bbox : [0, 0, 0, 0];
+
+                        // 初期値
+                        let x = b[0] ?? 0;
+                        let y = b[1] ?? 0;
+                        let w = 0;
+                        let h = 0;
+
+                        if (b.length >= 4) {
+                            // もし b[2], b[3] が x,y より大きければ [xmin,ymin,xmax,ymax] とみなす
+                            const looksLikeXYXY = b[2] > x && b[3] > y;
+                            if (looksLikeXYXY) {
+                                w = b[2] - x;
+                                h = b[3] - y;
+                            } else {
+                                // それ以外は [x,y,w,h] とみなす
+                                w = b[2];
+                                h = b[3];
+                            }
+                        }
+
+                        // id を A, B, C... に（27個目以降は A1, B1...）
+                        const base = String.fromCharCode(65 + (idx % 26));
+                        const suffix = idx >= 26 ? String(Math.floor(idx / 26)) : "";
+                        const id = base + suffix;
+
+                        // 整数化（必要なら 0 未満を 0 にクランプ）
+                        const toInt = v => Math.max(0, Math.round(v));
+
+                        return {
+                            id,
+                            x: toInt(x),
+                            y: toInt(y),
+                            w: toInt(w),
+                            h: toInt(h),
+                            label: d.label ?? String(d.class_id ?? ""),
+                            href: ""
+                        };
+                    });
+                }
 
                 // Align canvas to the image's on-screen box
                 function alignOverlayToImage() {
@@ -1315,21 +1383,21 @@ var create_plugin = (function () {
 
                     // Convert to parent's coordinate space
                     const left = (imgRect.left - parentRect.left) + parent.scrollLeft;
-                    const top  = (imgRect.top  - parentRect.top)  + parent.scrollTop;
+                    const top = (imgRect.top - parentRect.top) + parent.scrollTop;
 
                     // Apply
                     canvas.style.position = 'absolute';
                     canvas.style.left = left + 'px';
-                    canvas.style.top  = top  + 'px';
-                    canvas.style.width  = imgRect.width  + 'px';
+                    canvas.style.top = top + 'px';
+                    canvas.style.width = imgRect.width + 'px';
                     canvas.style.height = imgRect.height + 'px';
 
                     // Set rendering resolution (DPR aware)
                     const dpr = window.devicePixelRatio || 1;
-                    canvas.width  = Math.max(1, Math.round(imgRect.width  * dpr));
+                    canvas.width = Math.max(1, Math.round(imgRect.width * dpr));
                     canvas.height = Math.max(1, Math.round(imgRect.height * dpr));
                     canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
-                 }
+                }
 
                 // Image→display scale (natural pixels -> CSS pixels)
                 function getScale() {
@@ -1340,7 +1408,7 @@ var create_plugin = (function () {
                     return { scaleX: displayW / natW, scaleY: displayH / natH };
                 }
 
-                function draw(rects = [], hoverId = null) {
+                function draw(hoverId = null) {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                     const { scaleX, scaleY } = getScale();
@@ -1380,7 +1448,7 @@ var create_plugin = (function () {
                     const { scaleX, scaleY } = getScale();
                     return { ix: x / scaleX, iy: y / scaleY };
                 }
-                function onPick(rects = [], clientX, clientY) {
+                function onPick(clientX, clientY) {
                     const { ix, iy } = clientToImageXY(clientX, clientY);
                     for (let i = rects.length - 1; i >= 0; i--) {
                         if (hit(rects[i], ix, iy)) {
@@ -1390,7 +1458,7 @@ var create_plugin = (function () {
                     }
                     return false;
                 }
-                function updateHover(rects = [], clientX, clientY) {
+                function updateHover(clientX, clientY) {
                     const { ix, iy } = clientToImageXY(clientX, clientY);
                     let hoverId = null;
                     for (let i = rects.length - 1; i >= 0; i--) {
@@ -1401,7 +1469,10 @@ var create_plugin = (function () {
                 }
 
                 // Keep overlay aligned when layout changes
-                function refresh() { alignOverlayToImage(); draw(m_detected_objects); }
+                function refresh() {
+                    alignOverlayToImage();
+                    draw();
+                }
 
                 // Events: resize/scroll (page layout moves), image load (size known), element resize (CSS changes)
                 window.addEventListener('resize', refresh);
@@ -1417,10 +1488,10 @@ var create_plugin = (function () {
                 }
 
                 // Pointer events (optional)
-                canvas.addEventListener('click', (e) => onPick(m_detected_objects, e.clientX, e.clientY));
-                canvas.addEventListener('pointermove', (e) => updateHover(m_detected_objects, e.clientX, e.clientY));
+                canvas.addEventListener('click', (e) => onPick(e.clientX, e.clientY));
+                canvas.addEventListener('pointermove', (e) => updateHover(e.clientX, e.clientY));
                 canvas.addEventListener('pointerdown', (e) => {
-                    if (e.pointerType === 'touch') { onPick(m_detected_objects, e.clientX, e.clientY); e.preventDefault(); }
+                    if (e.pointerType === 'touch') { onPick(e.clientX, e.clientY); e.preventDefault(); }
                 }, { passive: false });
 
                 socket.onmessage = function (event) {
@@ -1434,6 +1505,7 @@ var create_plugin = (function () {
                         case "detect":
                             console.log(info.objects);
                             m_detected_objects = info.objects;
+                            rects = detectionsToAreas(m_detected_objects);
                             refresh();
                             break;
                     }
