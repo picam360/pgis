@@ -1453,6 +1453,9 @@ var create_plugin = (function () {
                     for (let i = rects.length - 1; i >= 0; i--) {
                         if (hit(rects[i], ix, iy)) {
                             alert(`${rects[i].label ?? rects[i].id} clicked`);
+                            if (m_socket) {
+                                m_socket.send(JSON.stringify(["PUBLISH", "pserver-auto-drive", `CMD START_RECORD TRACKING`]));
+                            }
                             return true;
                         }
                     }
