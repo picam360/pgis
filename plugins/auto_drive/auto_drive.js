@@ -940,9 +940,9 @@ var create_plugin = (function () {
                                 if (frame["picam360:frame"]["passthrough:encoder"]) {
                                     const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
                                     if (m_last_encoder) {
-                                        plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right} (${-(encoder.left - m_last_encoder.left)}, ${encoder.right - m_last_encoder.right})`);
+                                        plugin.update_value('encoder-value', `${encoder.left}, ${encoder.right} (${encoder.left - m_last_encoder.left}, ${encoder.right - m_last_encoder.right})`);
                                     } else {
-                                        plugin.update_value('encoder-value', `${-encoder.left}, ${encoder.right}`);
+                                        plugin.update_value('encoder-value', `${encoder.left}, ${encoder.right}`);
                                     }
                                     m_last_encoder = encoder;
                                 }
@@ -1368,7 +1368,8 @@ var create_plugin = (function () {
                             w: toInt(w),
                             h: toInt(h),
                             label: d.label ?? String(d.class_id ?? ""),
-                            href: ""
+                            href: "",
+                            score: (d.score*100).toFixed(0),
                         };
                     });
                 }
@@ -1434,7 +1435,7 @@ var create_plugin = (function () {
                         ctx.fillStyle = 'rgba(0,0,0,0.45)';
                         ctx.fillRect(tx - 6, ty - 14, bgW, bgH);
                         ctx.fillStyle = 'white';
-                        ctx.fillText(label, tx, ty);
+                        ctx.fillText(`${label}(${r.score})`, tx, ty);
                     }
                 }
 
