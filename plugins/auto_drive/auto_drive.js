@@ -1328,50 +1328,92 @@ var create_plugin = (function () {
                 const img = document.getElementById('img-left-top');
                 const canvas = document.getElementById('img-left-top-overlay');
                 const ctx = canvas.getContext('2d');
-
                 function detectionsToAreas(detections) {
+                    // Create an array of Promises (one per detection)
+                    const promises = detections.map((d, idx) => {
+                        return new Promise((resolve) => {
+                            const b = Array.isArray(d.bbox) ? d.bbox : [0, 0, 0, 0];
 
-                    return detections.map((d, idx) => {
-                        const b = Array.isArray(d.bbox) ? d.bbox : [0, 0, 0, 0];
+                            let x = b[0] ?? 0;
+                            let y = b[1] ?? 0;
+                            let w = 0;
+                            let h = 0;
 
-                        // 初期値
-                        let x = b[0] ?? 0;
-                        let y = b[1] ?? 0;
-                        let w = 0;
-                        let h = 0;
-
-                        if (b.length >= 4) {
-                            // もし b[2], b[3] が x,y より大きければ [xmin,ymin,xmax,ymax] とみなす
-                            const looksLikeXYXY = b[2] > x && b[3] > y;
-                            if (looksLikeXYXY) {
-                                w = b[2] - x;
-                                h = b[3] - y;
-                            } else {
-                                // それ以外は [x,y,w,h] とみなす
-                                w = b[2];
-                                h = b[3];
+                            if (b.length >= 4) {
+                                // If b looks like [xmin, ymin, xmax, ymax]
+                                const looksLikeXYXY = b[2] > x && b[3] > y;
+                                if (looksLikeXYXY) {
+                                    w = b[2] - x;
+                                    h = b[3] - y;
+                                } else {
+                                    // Otherwise assume [x, y, w, h]
+                                    w = b[2];
+                                    h = b[3];
+                                }
                             }
-                        }
 
-                        // id を A, B, C... に（27個目以降は A1, B1...）
-                        const base = String.fromCharCode(65 + (idx % 26));
-                        const suffix = idx >= 26 ? String(Math.floor(idx / 26)) : "";
-                        const id = base + suffix;
+                            // Generate id: A, B, C ... then A1, B1... after 26
+                            const base = String.fromCharCode(65 + (idx % 26));
+                            const suffix = idx >= 26 ? String(Math.floor(idx / 26)) : "";
+                            const id = base + suffix;
 
-                        // 整数化（必要なら 0 未満を 0 にクランプ）
-                        const toInt = v => Math.max(0, Math.round(v));
+                            const toInt = v => Math.max(0, Math.round(v));
 
-                        return {
-                            id,
-                            x: toInt(x),
-                            y: toInt(y),
-                            w: toInt(w),
-                            h: toInt(h),
-                            label: d.label ?? String(d.class_id ?? ""),
-                            href: "",
-                            score: (d.score*100).toFixed(0),
-                        };
+                            let img = null;
+                            if (d.mask) {
+                                img = new Image();
+                                img.src = "data:image/png;base64," + d.mask;
+
+                                // When image loads successfully
+                                img.onload = () => {
+                                    console.log("Image loaded:", img.width, img.height);
+                                    resolve({
+                                        id,
+                                        x: toInt(x),
+                                        y: toInt(y),
+                                        w: toInt(w),
+                                        h: toInt(h),
+                                        label: d.label ?? String(d.class_id ?? ""),
+                                        href: "",
+                                        score: (d.score * 100).toFixed(0),
+                                        img,
+                                    });
+                                };
+
+                                // When image fails to load
+                                img.onerror = (err) => {
+                                    console.error("Image load error:", err);
+                                    resolve({
+                                        id,
+                                        x: toInt(x),
+                                        y: toInt(y),
+                                        w: toInt(w),
+                                        h: toInt(h),
+                                        label: d.label ?? String(d.class_id ?? ""),
+                                        href: "",
+                                        score: (d.score * 100).toFixed(0),
+                                        img: null,
+                                    });
+                                };
+                            } else {
+                                // No mask provided → resolve immediately
+                                resolve({
+                                    id,
+                                    x: toInt(x),
+                                    y: toInt(y),
+                                    w: toInt(w),
+                                    h: toInt(h),
+                                    label: d.label ?? String(d.class_id ?? ""),
+                                    href: "",
+                                    score: (d.score * 100).toFixed(0),
+                                    img: null,
+                                });
+                            }
+                        });
                     });
+
+                    // Return a Promise that resolves when all images are loaded
+                    return Promise.all(promises);
                 }
 
                 // Align canvas to the image's on-screen box
@@ -1426,6 +1468,12 @@ var create_plugin = (function () {
                         ctx.lineWidth = 2;
                         ctx.strokeStyle = 'rgba(0,153,255,0.95)';
                         ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+
+                        if (r.img && r.img.width != 0 && r.img.height != 0) {
+                            ctx.globalAlpha = 0.5;
+                            ctx.drawImage(r.img, 0, 0, r.img.width * scaleX, r.img.height * scaleY);
+                            ctx.globalAlpha = 1.0;
+                        }
 
                         const label = r.label ?? r.id;
                         ctx.font = '600 13px system-ui, -apple-system, Segoe UI, Roboto, Arial';
@@ -1509,8 +1557,10 @@ var create_plugin = (function () {
                         case "detect":
                             console.log(info.objects);
                             m_detected_objects = info.objects;
-                            rects = detectionsToAreas(m_detected_objects);
-                            refresh();
+                            detectionsToAreas(m_detected_objects).then(res => {
+                                rects = res;
+                                refresh();
+                            });
                             break;
                     }
                 };
