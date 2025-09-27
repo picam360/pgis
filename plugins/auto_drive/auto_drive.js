@@ -7,6 +7,10 @@ var create_plugin = (function () {
     let m_waypoints = {};
     let m_cur = -1;
     let m_socket = null;
+    let m_imgs = {
+        main : null,
+        backward : null,
+    };
 
     function _convert_DMS_to_deg(input_str) {
         const dotIndex = input_str.indexOf('.');
@@ -715,7 +719,7 @@ var create_plugin = (function () {
                 if (pgis === sender) {
                     if (event === "loaded") {
                         setTimeout(() => {
-                            if (m_options.webdis_url && m_options.pst_channel) {//webdis for publish
+                            if (m_options.webdis_url && m_options.backward_pst_channel) {//webdis for publish
                                 const socket = new WebSocket(m_options.webdis_url);
 
                                 let tmp_img = [];
@@ -739,8 +743,11 @@ var create_plugin = (function () {
                                 };
                             }
                             plugin.init_map_layer();
-                            if (m_options.webdis_url && m_options.pst_channel) {//webdis
-                                plugin.subscribe_pst();
+                            if (m_options.webdis_url && m_options.main_pst_channel) {//webdis
+                                plugin.subscribe_main_pst();
+                            }
+                            if (m_options.webdis_url && m_options.backward_pst_channel) {//webdis
+                                plugin.subscribe_backward_pst();
                             }
                             if (m_options.webdis_url && m_options.info_channel) {//webdis
                                 plugin.subscribe_info();
@@ -889,14 +896,43 @@ var create_plugin = (function () {
                     cell.textContent = newValue;
                 }
             },
-            subscribe_pst: () => {
+            update_img_overlay: () => {},
+            update_img: () => {
+                const img_canvas = document.getElementById('img-left-top');
+                const ctx = img_canvas.getContext('2d');
+                const displayWidth  = img_canvas.clientWidth;
+                const displayHeight = img_canvas.clientHeight;
+                const ratio = window.devicePixelRatio || 1;
+                img_canvas.width  = displayWidth * ratio;
+                img_canvas.height = displayHeight * ratio;
+                ctx.scale(ratio, ratio);
+                if(m_imgs.main){
+                    const img = m_imgs.main;
+                    ctx.drawImage(img, 
+                        0, 0, img.width / 2, img.height,
+                        0, 0, displayWidth / 2, displayHeight
+                    );
+                }
+                if(m_imgs.backward){
+                    const img = m_imgs.backward;
+                    ctx.drawImage(img, 
+                        0, 0, img.width / 2, img.height,
+                        displayWidth / 2, 0, displayWidth / 2, displayHeight
+                    );
+                }
+                if(plugin.update_img_overlay){
+                    plugin.update_img_overlay(img_canvas, ctx);
+                }
+            },
+
+            subscribe_backward_pst: () => {
 
                 const socket = new WebSocket(m_options.webdis_url);
 
                 let tmp_img = [];
                 socket.onmessage = function (event) {
                     const msg = JSON.parse(event.data);
-                    if (!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.pst_channel) {
+                    if (!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.backward_pst_channel) {
                         return;
                     }
 
@@ -934,8 +970,12 @@ var create_plugin = (function () {
                                     m_active_path_layer.push_nmea(nmea);
                                 }
 
-                                const img = document.getElementById('img-left-top');
+                                const img = new Image();
                                 img.src = 'data:image/jpeg;base64,' + tmp_img[2];
+                                img.onload = () => {
+                                    m_imgs.backward = img;
+                                    plugin.update_img();
+                                };
 
                                 if (frame["picam360:frame"]["passthrough:encoder"]) {
                                     const encoder = JSON.parse(frame["picam360:frame"]["passthrough:encoder"]);
@@ -963,8 +1003,53 @@ var create_plugin = (function () {
 
                 socket.onopen = function () {
                     console.log("webdis connection established");
-                    if (m_options.pst_channel) {
-                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.pst_channel]));
+                    if (m_options.backward_pst_channel) {
+                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.backward_pst_channel]));
+                    }
+                };
+
+                socket.onclose = function () {
+                    console.log("webdis connection closed");
+                };
+
+                socket.onerror = function (error) {
+                    console.log(`Error: ${error.message}`);
+                };
+            },
+            subscribe_main_pst: () => {
+
+                const socket = new WebSocket(m_options.webdis_url);
+
+                let tmp_img = [];
+                socket.onmessage = function (event) {
+                    const msg = JSON.parse(event.data);
+                    if (!msg["SUBSCRIBE"] || msg["SUBSCRIBE"][0] != "message" || msg["SUBSCRIBE"][1] != m_options.main_pst_channel) {
+                        return;
+                    }
+
+                    const data = msg["SUBSCRIBE"][2];
+                    if (data.length == 0 && tmp_img.length != 0) {
+                        if (tmp_img.length == 3) {
+
+                            const img = new Image();
+                            img.src = 'data:image/jpeg;base64,' + tmp_img[2];
+                            img.onload = () => {
+                                m_imgs.main = img;
+                                plugin.update_img();
+                            };
+
+                            //console.log(frame);
+                        }
+                        tmp_img = [];
+                    } else {
+                        tmp_img.push(data);
+                    }
+                };
+
+                socket.onopen = function () {
+                    console.log("webdis connection established");
+                    if (m_options.main_pst_channel) {
+                        socket.send(JSON.stringify(["SUBSCRIBE", m_options.main_pst_channel]));
                     }
                 };
 
@@ -1323,11 +1408,10 @@ var create_plugin = (function () {
 
                 let m_detected_objects = [];
                 let rects = [];
+                let hoverId = null;
                 // [{ "id": "A", "x": 20, "y": 20, "w": 120, "h": 60, "label": "Area A", "href": "" }];
 
-                const img = document.getElementById('img-left-top');
-                const canvas = document.getElementById('img-left-top-overlay');
-                const ctx = canvas.getContext('2d');
+                const img_canvas = document.getElementById('img-left-top');
                 function detectionsToAreas(detections) {
                     // Create an array of Promises (one per detection)
                     const promises = detections.map((d, idx) => {
@@ -1416,44 +1500,14 @@ var create_plugin = (function () {
                     return Promise.all(promises);
                 }
 
-                // Align canvas to the image's on-screen box
-                function alignOverlayToImage() {
-                    const parent = canvas.offsetParent || document.documentElement; // fallback
-
-                    // Viewport rectangles
-                    const imgRect = img.getBoundingClientRect();
-                    const parentRect = parent.getBoundingClientRect();
-
-                    // Convert to parent's coordinate space
-                    const left = (imgRect.left - parentRect.left) + parent.scrollLeft;
-                    const top = (imgRect.top - parentRect.top) + parent.scrollTop;
-
-                    // Apply
-                    canvas.style.position = 'absolute';
-                    canvas.style.left = left + 'px';
-                    canvas.style.top = top + 'px';
-                    canvas.style.width = imgRect.width + 'px';
-                    canvas.style.height = imgRect.height + 'px';
-
-                    // Set rendering resolution (DPR aware)
-                    const dpr = window.devicePixelRatio || 1;
-                    canvas.width = Math.max(1, Math.round(imgRect.width * dpr));
-                    canvas.height = Math.max(1, Math.round(imgRect.height * dpr));
-                    canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
-                }
 
                 // Image→display scale (natural pixels -> CSS pixels)
                 function getScale() {
-                    const displayW = canvas.clientWidth;   // CSS px
-                    const displayH = canvas.clientHeight;
-                    const natW = img.naturalWidth || displayW;
-                    const natH = img.naturalHeight || displayH;
-                    return { scaleX: displayW / natW, scaleY: displayH / natH };
+                    const scaleX = (img_canvas.width/2/512)/2;
+                    const scaleY = img_canvas.height/512/2;
+                    return { scaleX, scaleY };
                 }
-
-                function draw(hoverId = null) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+                plugin.update_img_overlay = (obj, ctx) => {
                     const { scaleX, scaleY } = getScale();
                     for (const r of rects) {
                         const x = Math.round(r.x * scaleX);
@@ -1491,7 +1545,7 @@ var create_plugin = (function () {
                     return ix >= r.x && ix <= r.x + r.w && iy >= r.y && iy <= r.y + r.h;
                 }
                 function clientToImageXY(clientX, clientY) {
-                    const rect = canvas.getBoundingClientRect();
+                    const rect = img_canvas.getBoundingClientRect();
                     const x = clientX - rect.left;
                     const y = clientY - rect.top;
                     const { scaleX, scaleY } = getScale();
@@ -1512,37 +1566,36 @@ var create_plugin = (function () {
                 }
                 function updateHover(clientX, clientY) {
                     const { ix, iy } = clientToImageXY(clientX, clientY);
-                    let hoverId = null;
+                    hoverId = null;
                     for (let i = rects.length - 1; i >= 0; i--) {
                         if (hit(rects[i], ix, iy)) { hoverId = rects[i].id; break; }
                     }
-                    canvas.style.cursor = hoverId ? 'pointer' : 'default';
-                    draw(rects, hoverId);
+                    img_canvas.style.cursor = hoverId ? 'pointer' : 'default';
+                    refresh();
                 }
 
                 // Keep overlay aligned when layout changes
                 function refresh() {
-                    alignOverlayToImage();
-                    draw();
+                    plugin.update_img();
                 }
 
                 // Events: resize/scroll (page layout moves), image load (size known), element resize (CSS changes)
                 window.addEventListener('resize', refresh);
                 window.addEventListener('scroll', refresh, { passive: true });
 
-                if (img.complete && img.naturalWidth) refresh();
-                else img.addEventListener('load', refresh);
+                if (img_canvas.complete && img_canvas.naturalWidth) refresh();
+                else img_canvas.addEventListener('load', refresh);
 
                 // Watch for size changes of the IMG via ResizeObserver (e.g., responsive layout)
                 if ('ResizeObserver' in window) {
                     const ro = new ResizeObserver(refresh);
-                    ro.observe(img);
+                    ro.observe(img_canvas);
                 }
 
                 // Pointer events (optional)
-                canvas.addEventListener('click', (e) => onPick(e.clientX, e.clientY));
-                canvas.addEventListener('pointermove', (e) => updateHover(e.clientX, e.clientY));
-                canvas.addEventListener('pointerdown', (e) => {
+                img_canvas.addEventListener('click', (e) => onPick(e.clientX, e.clientY));
+                img_canvas.addEventListener('pointermove', (e) => updateHover(e.clientX, e.clientY));
+                img_canvas.addEventListener('pointerdown', (e) => {
                     if (e.pointerType === 'touch') { onPick(e.clientX, e.clientY); e.preventDefault(); }
                 }, { passive: false });
 
