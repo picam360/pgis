@@ -1412,6 +1412,7 @@ var create_plugin = (function () {
                 let m_detected_objects = [];
                 let rects = [];
                 let hoverId = null;
+                let m_direction = "";//forward or backward
                 // [{ "id": "A", "x": 20, "y": 20, "w": 120, "h": 60, "label": "Area A", "href": "" }];
 
                 const img_canvas = document.getElementById('img-left-top');
@@ -1510,11 +1511,13 @@ var create_plugin = (function () {
                     const scaleY = img_canvas.height/512/2;
                     return { scaleX, scaleY };
                 }
-                plugin.update_img_overlays.push( (obj, ctx) => {
+                plugin.update_img_overlays.push( (img_canvas, ctx) => {
                     const { scaleX, scaleY } = getScale();
+                    const [ offsetX, offsetY ] = 
+                        (m_direction == "backward" ? [ img_canvas.clientWidth/2, 0 ] : [ 0, 0 ]);
                     for (const r of rects) {
-                        const x = Math.round(r.x * scaleX);
-                        const y = Math.round(r.y * scaleY);
+                        const x = Math.round(r.x * scaleX) + offsetX;
+                        const y = Math.round(r.y * scaleY) + offsetY;
                         const w = Math.round(r.w * scaleX);
                         const h = Math.round(r.h * scaleY);
                         const hover = r.id === hoverId;
@@ -1573,6 +1576,7 @@ var create_plugin = (function () {
                         case "detect":
                             console.log(info.objects);
                             m_detected_objects = info.objects;
+                            m_direction = info['user_data'].direction;
                             detectionsToAreas(m_detected_objects).then(res => {
                                 rects = res;
                                 refresh();
@@ -1701,7 +1705,7 @@ var create_plugin = (function () {
                     const scaleY = img_canvas.height/512/2;
                     return { scaleX, scaleY };
                 }
-                plugin.update_img_overlays.push( (obj, ctx) => {
+                plugin.update_img_overlays.push( (img_canvas, ctx) => {
                     const { scaleX, scaleY } = getScale();
                     for (const r of rects) {
                         const x = Math.round(r.x * scaleX);
